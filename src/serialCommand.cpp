@@ -1,0 +1,86 @@
+#include"serialCommand.h"
+String incomingCommand = "";
+
+unsigned int command(){
+    if (Serial.available() > 0){
+        //read character from Serial sequentially 
+        char incomingChar = Serial.read();
+        incomingCommand += incomingChar;
+        //if hit Enter
+        if (incomingChar == '\n' || incomingChar == '\r' ){
+            String Command = incomingCommand;
+            incomingCommand = "";
+            Command.trim(); // Get rid of leading/trailing spaces and terminators
+            Command.toLowerCase();
+            //check commands
+                if (Command.startsWith("position")) {
+                    
+                unsigned int startIndex = 9; 
+                int spaceIndex = -1;
+                
+                while (startIndex < Command.length()) {
+                    // Find the start of the next token (should be a tag like -a)
+                    spaceIndex = Command.indexOf(' ', startIndex);
+                    if (spaceIndex == -1) {
+                        spaceIndex = Command.length(); // If it's the last token
+                    }
+
+                    // Extract the tag (e.g., "-a")
+                    String tag = Command.substring(startIndex, spaceIndex);
+                    tag.trim();
+                    startIndex = spaceIndex + 1; // Start next search after this space
+
+                    // Check if a tag was found and if we have space for a value
+                    if (tag.length() > 0 && startIndex < Command.length()) {
+                        
+                        // Find the space after the value
+                        int valueSpaceIndex = Command.indexOf(' ', startIndex);
+                        if (valueSpaceIndex == -1) {
+                            valueSpaceIndex = Command.length();
+                        }
+                        
+                        // Extract the value (e.g., "10")
+                        String valueStr = Command.substring(startIndex, valueSpaceIndex);
+                        valueStr.trim();
+                        startIndex = valueSpaceIndex + 1; // Move past the value
+
+                        double motorValue = valueStr.toDouble(); // Convert to number!
+
+                        // ----------------------------------------------------
+                        // Assign Value based on Tag (Don't mess this up!)
+                        if (tag.equalsIgnoreCase("-a")) {
+                            argument[0] = motorValue;
+                        } else if (tag.equalsIgnoreCase("-b")) {
+                            argument[1] = motorValue;
+                        } else if (tag.equalsIgnoreCase("-c")) {
+                            argument[2] = motorValue;
+                        } 
+                        // You can add more motors here...
+                        // ----------------------------------------------------
+                        checkCommand();
+                        clearArgument();
+                    }
+
+                }
+
+                    return POSITION;
+                }
+        }
+    }
+    else return NONE;
+}
+
+
+void checkCommand(){
+    Serial.print("Position: ");
+    for(int i =0; i < 3; i++){
+        Serial.print(" ");
+        Serial.print(argument[i]);
+    }
+    Serial.println();
+}
+void clearArgument(){
+    for (int i = 0; i < n; i++){
+        argument[i] = 0.0;
+    }
+}
