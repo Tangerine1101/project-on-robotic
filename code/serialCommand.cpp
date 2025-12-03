@@ -12,7 +12,7 @@ commands serialCom::commandHandle(){
         //when hit enter
         if (incomingChar == '\n' || incomingChar == '\r'){
             String Command = incomingCommand;
-            incomingCommand = "";
+            incomingCommand = " ";
             Command.trim(); // get rid of spaces and terminators from begining/end
             Command.toLowerCase();
             
@@ -41,7 +41,7 @@ void serialCom::readFrom(unsigned int pos, String Command){
     unsigned int startIndex = pos;
     unsigned int i = 0;
     int spaceIndex = -1;
-    unsigned int hyphenIndex = -1;
+    int hyphenIndex = -1;
 
     while(startIndex < Command.length() && i < maxArguments){ // Changed <= to < for safety
         // Find the hyphen

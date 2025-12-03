@@ -24,8 +24,8 @@ const int dir4 = 28;
 const int pul4= 29;
 //stepper's parameters
 const int stepsPerRevolution = 200; // Typical steps for a 1.8 degree motor in full step
-const float maxSpeed = 2740;       // Steps per second 
-const float acceleration = 1370;   // Steps per second squared 
+const float maxSpeed = 2000;       // Steps per second 
+const float acceleration = 100;   // Steps per second squared 
 //physical limited of each joint
 const float joint1Min = 0;
 const float joint1Max = 360;
