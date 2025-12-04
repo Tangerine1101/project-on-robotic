@@ -13,7 +13,7 @@ class motorControl {
     public:
         motorControl();
         void init();
-        
+        void moveJoint(long step);
         // The core functions you asked for
         void move(char axis, float angle);   // Relative move
         void moveto(char axis, float angle); // Absolute move

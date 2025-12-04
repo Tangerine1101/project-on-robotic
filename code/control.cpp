@@ -67,9 +67,13 @@ void motorControl::moveto(char axis, float angle) {
 
 // Checks if motors need to step. CALL THIS OFTEN.
 void motorControl::run() {
+ //   if (joint1.currentPosition()>joint1Min && joint1.currentPosition() < joint1Max)
     joint1.run();
+   // if (joint2.currentPosition()>joint2Min && joint2.currentPosition() < joint2Max)
     joint2.run();
+    //if (joint3.currentPosition()>joint3Min && joint3.currentPosition() < joint3Max)
     joint3.run();
+    //if (joint4.currentPosition()>joint4Min && joint4.currentPosition() < joint4Max)
     joint4.run();
 }
 

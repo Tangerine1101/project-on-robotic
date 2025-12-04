@@ -1,5 +1,3 @@
-// In main.cpp
-
 #include "serialCommand.h"
 #include "control.h"
 
@@ -10,7 +8,7 @@ motorControl robot;
 void operate();
 
 void setup() {
-    Serial.begin(BAUDRATE); // Make sure this matches your monitor
+    Serial.begin(9600); // Make sure this matches your monitor
     robot.init();
     Serial.println("System Ready. Waiting for commands...");
 }

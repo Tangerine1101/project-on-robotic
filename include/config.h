@@ -8,7 +8,7 @@
 #define GEAR_RATIO 13.7 
 #define STEP_PER_REV 200
 #define STEPPER_SPEED 60 //rpm
-#define MICRO_STEP  1
+#define MICRO_STEP  2
 //Serial communicate
 #define BAUDRATE    115200
 
@@ -24,15 +24,16 @@ const int dir4 = 28;
 const int pul4= 29;
 //stepper's parameters
 const int stepsPerRevolution = 200; // Typical steps for a 1.8 degree motor in full step
-const float maxSpeed = 2740;       // Steps per second 
-const float acceleration = 1370;   // Steps per second squared 
-//physical limited of each joint
-const float joint1Min = 0;
-const float joint1Max = 360;
-const float joint2Min =0;
-const float joint2Max= 360;
-const float joint3Min =0;
-const float joint3Max = 360;
-const float joint4Min =0;
-const float joint4Max = 360;
+const float maxSpeed = 2000;       // Steps per second 
+const float acceleration = 1000;   // Steps per second squared 
+//physical limited of each joint (IN STEP UNIT, NOT DEGREE)
+const double stepConvert = STEP_PER_REV*GEAR_RATIO*MICRO_STEP/360;
+const long joint1Min = 0 * stepConvert;
+const long joint1Max = 360 * stepConvert;
+const long  joint2Min = 0 * stepConvert;
+const long  joint2Max= 360 * stepConvert;
+const long  joint3Min =0 * stepConvert;
+const long  joint3Max = 360 * stepConvert;
+const long  joint4Min =0 * stepConvert;
+const long  joint4Max = 360 * stepConvert;
 #endif

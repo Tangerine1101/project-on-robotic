@@ -8,8 +8,11 @@ motorControl robot;
 void operate();
 
 void setup() {
-    Serial.begin(BAUDRATE); // Make sure this matches your monitor
+    Serial.begin(115200); // Make sure this matches your monitor
     robot.init();
+    pinMode(28, OUTPUT);
+    digitalWrite(28, 1);
+    //robot.moveJoint(-1500);
     Serial.println("System Ready. Waiting for commands...");
 }
 

@@ -26,7 +26,7 @@ commands serialCom::commandHandle(){
                 readFrom(7, Command);
                 return cmd_moveto;
             } 
-            else if (Command.startsWith("position ")){
+            else if (Command.startsWith("position")){
                 
                 return cmd_position;
             }
@@ -37,6 +37,7 @@ commands serialCom::commandHandle(){
     }
         return cmd_none;
 }
+/*/
 void serialCom::readFrom(unsigned int pos, String Command){
     unsigned int startIndex = pos;
     unsigned int i = 0;
@@ -82,6 +83,57 @@ void serialCom::readFrom(unsigned int pos, String Command){
         valueStr.trim(); // Clean up just in case
         argument[i] = valueStr.toDouble(); 
         
+        // Prepare for next loop
+        startIndex = spaceIndex; 
+        i++;
+    }
+}
+
+*/
+void serialCom::readFrom(unsigned int pos, String Command){
+    unsigned int startIndex = pos;
+    unsigned int i = 0;
+    int spaceIndex = -1;
+    int hyphenIndex = -1;
+
+    // Safety: Clear old arguments first so we don't get ghost values
+    clearArgument(); 
+
+    while(startIndex < Command.length() && i < maxArguments){ 
+        // 1. Find the hyphen
+        hyphenIndex = Command.indexOf('-', startIndex);
+        if(hyphenIndex == -1) break; // No more tags
+
+        // 2. Extract the Tag (e.g., 'a')
+        if(hyphenIndex + 1 < Command.length()){
+             Indexs[i] = Command.charAt(hyphenIndex + 1);
+             commandIndex[i] = Indexs[i]; 
+        }
+
+        // 3. Find the Start of the Number
+        // Start looking 2 chars after hyphen (skip '-' and tag)
+        int valueStart = hyphenIndex + 2;
+        
+        // CRITICAL FIX: Skip any spaces between the tag and the number!
+        while(valueStart < Command.length() && Command.charAt(valueStart) == ' ') {
+            valueStart++;
+        }
+
+        // 4. Find the End of the Number (Next space)
+        spaceIndex = Command.indexOf(' ', valueStart);
+        
+        // If no space found, the number goes to the end of the string
+        if (spaceIndex == -1) {
+            spaceIndex = Command.length(); 
+        }
+
+        // 5. Extract and Convert
+        // Only try to convert if we actually have characters
+        if (valueStart < spaceIndex) {
+            String valueStr = Command.substring(valueStart, spaceIndex);
+            argument[i] = valueStr.toDouble(); 
+        }
+
         // Prepare for next loop
         startIndex = spaceIndex; 
         i++;
