@@ -6,10 +6,12 @@
 
 #define maxArguments  4 //maximum arguments
     typedef enum {
-        cmd_move,
-        cmd_moveto,
-        cmd_position,
-        cmd_invalid,
+        cmd_move =1, 
+        cmd_moveto =2,
+        cmd_position =3,
+        cmd_setpos =4,
+        cmd_refpos =5,
+        cmd_invalid =0,
         cmd_none
             
     } commands;

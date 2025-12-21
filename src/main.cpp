@@ -10,9 +10,8 @@ void operate();
 void setup() {
     Serial.begin(115200); // Make sure this matches your monitor
     robot.init();
-    pinMode(28, OUTPUT);
-    digitalWrite(28, 1);
-    //robot.moveJoint(-1500);
+    pinMode(refVolt, OUTPUT);
+    digitalWrite(refVolt, 1);
     Serial.println("System Ready. Waiting for commands...");
 }
 
@@ -35,7 +34,6 @@ void operate() {
             char tag = serialCLI.Indexs[i];    // e.g., 'a'
             double val = serialCLI.Arguments[i]; // e.g., 90.0
             
-            // Only move if tag is valid (not space/null)
             if(tag != ' ' && tag != 0) {
                 robot.move(tag, (float)val);
                 Serial.print("Relative Move: "); Serial.print(tag); Serial.println(val);
@@ -61,6 +59,5 @@ void operate() {
     }
 
     // 3. CRITICAL: Actually drive the motors
-    // This needs to run as fast as possible, every loop cycle.
     robot.run();
 }

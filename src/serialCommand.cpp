@@ -30,6 +30,13 @@ commands serialCom::commandHandle(){
                 
                 return cmd_position;
             }
+            else if (Command.startsWith("setpos")){
+                readFrom(7, Command);
+                return cmd_setpos;
+            }
+            else if (Command.startsWith("refpos")){
+                return cmd_refpos;
+            }
             else {
                 return cmd_invalid;
             }

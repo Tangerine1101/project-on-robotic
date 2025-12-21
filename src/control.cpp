@@ -62,6 +62,20 @@ void motorControl::move(char axis, float angle) {
 // ABSOLUTE MOVE: Move to specific angle X
 void motorControl::moveto(char axis, float angle) {
     long steps = angleToSteps(angle);
+    if (!safety_check(axis, angle)){
+        return;
+    }
+    switch(axis) {
+        case 'a': joint1.moveTo(steps); break;
+        case 'b': joint2.moveTo(steps); break;
+        case 'c': joint3.moveTo(steps); break;
+        case 'd': joint4.moveTo(steps); break;
+        default: Serial.println("Error: Invalid Axis"); break;
+    }
+}
+
+void motorControl::setpos(char axis, float angle){
+    long steps = angleToSteps(angle);
 
     switch(axis) {
         case 'a': joint1.moveTo(steps); break;
@@ -89,4 +103,13 @@ void motorControl::reportPosition() {
     Serial.print(" | Pos B: "); Serial.print(stepsToAngle(joint2.currentPosition()));
     Serial.print(" | Pos C: "); Serial.print(stepsToAngle(joint3.currentPosition()));
     Serial.print(" | Pos D: "); Serial.println(stepsToAngle(joint4.currentPosition()));
+}
+
+bool motorControl::safety_check(char axis, float angle){
+    if(0){
+        Serial.println("Error: Safety check fail");
+    }
+    else{
+        return 0;
+    }
 }

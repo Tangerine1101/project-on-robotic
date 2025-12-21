@@ -14,14 +14,15 @@ class motorControl {
         motorControl();
         void init();
         void moveJoint(long step);
-        // The core functions you asked for
+        // The core functions 
         void move(char axis, float angle);   // Relative move
         void moveto(char axis, float angle); // Absolute move
-        
+        void setpos(char axis, float angle);
+        void refpos();
         // Essential system functions
         void run(); // Must be called in the main loop constantly!
         void reportPosition(); // Prints current angles to Serial
-
+        bool safety_check(char axis, float angle);
     private:
         // Helper to convert degrees to steps
         long angleToSteps(float angle);
