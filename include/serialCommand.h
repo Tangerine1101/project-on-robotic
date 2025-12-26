@@ -2,104 +2,52 @@
 #define SERIAL_COMMANDS
 #define POSITION    1
 #define NONE    0
+#define maxArguments  5 //maximum arguments
+#define NODE_STARTBYTE  0x23 // '#'
+#define NODE_SENDBYTE   0x40 // '@'
 #include <Arduino.h>
+#include "config.h"
+extern char indexsList[maxArguments];
+struct __attribute__((packed)) serialPackage
+{
+    uint8_t startByte; //check if the first byte is correct
+    char commandID; //the command character
+    int8_t bitmask; //5 bits to indicate which joints to move
+    float Arguments[maxArguments]; //arguments for each joint
+    int8_t checksum; 
+};
 
-#define maxArguments  4 //maximum arguments
-    typedef enum {
-        cmd_move =1, 
-        cmd_moveto =2,
-        cmd_position =3,
-        cmd_setpos =4,
-        cmd_refpos =5,
-        cmd_invalid =0,
-        cmd_none
-            
-    } commands;
+typedef enum {
+    cmd_none,
+    cmd_move, // Relative move
+    cmd_moveto, // Absolute move
+    cmd_position, // Report current position
+    cmd_currentPos, // Set current position without moving
+    cmd_grip,// Close the grip
+    cmd_release, // Open the grip
+    cmd_moveref, // Calibrate to reference position
+    cmd_humanInterface, // For human convinience
+    cmd_ros2Interface, // if subscribed, stream joints and grip angles constantly
+    cmd_invalid            
+} commands;
 
 class serialCom {
     public:
-
+        
         commands commandHandle();
+        commands readNode();
         serialCom();
         void readFrom(unsigned int pos, String Command);
         void clearArgument();
         void getArgument();
-        double Arguments[maxArguments];
+        float Arguments[maxArguments];
         char Indexs[maxArguments];
 
     private:
         String incomingCommand = "";
-        double argument[maxArguments];
-        char commandIndex[maxArguments];
-};
-/*
- commands serialCom::commandHandle(){
-    if (Serial.available() > 0){
-        //read character from Serial sequentially 
-        char incomingChar = Serial.read();
-        incomingCommand += incomingChar;
-        //if hit Enter
-        if (incomingChar == '\n' || incomingChar == '\r' ){
-            String Command = incomingCommand;
-            incomingCommand = "";
-            Command.trim(); // Get rid of leading/trailing spaces and terminators
-            Command.toLowerCase();
-            //check commands
-                if (Command.startsWith("position")) {
-                    
-                unsigned int startIndex = 9; 
-                int spaceIndex = -1;
-                
-                while (startIndex < Command.length()) {
-                    // Find the start of the next token (should be a tag like -a)
-                    spaceIndex = Command.indexOf(' ', startIndex);
-                    if (spaceIndex == -1) {
-                        spaceIndex = Command.length(); // If it's the last token
-                    }
+        float privateArg[maxArguments];
+        char privateIndex[maxArguments];
+        bool verifyChecksum(const serialPackage& pkg);
+    };
 
-                    // Extract the tag (e.g., "-a")
-                    String tag = Command.substring(startIndex, spaceIndex);
-                    tag.trim();
-                    startIndex = spaceIndex + 1; // Start next search after this space
-
-                    // Check if a tag was found and if we have space for a value
-                    if (tag.length() > 0 && startIndex < Command.length()) {
-                        
-                        // Find the space after the value
-                        int valueSpaceIndex = Command.indexOf(' ', startIndex);
-                        if (valueSpaceIndex == -1) {
-                            valueSpaceIndex = Command.length();
-                        }
-                        
-                        // Extract the value (e.g., "10")
-                        String valueStr = Command.substring(startIndex, valueSpaceIndex);
-                        valueStr.trim();
-                        startIndex = valueSpaceIndex + 1; // Move past the value
-
-                        double motorValue = valueStr.toDouble(); // Convert to number!
-
-                        // ----------------------------------------------------
-                        // Assign Value based on Tag (Don't mess this up!)
-                        if (tag.equalsIgnoreCase("-a")) {
-                            argument[0] = motorValue;
-                        } else if (tag.equalsIgnoreCase("-b")) {
-                            argument[1] = motorValue;
-                        } else if (tag.equalsIgnoreCase("-c")) {
-                            argument[2] = motorValue;
-                        } 
-                        // You can add more motors here...
-                        // ----------------------------------------------------
-                        checkCommand();
-                        clearArgument();
-                    }
-
-                }
-
-                    return position;
-                }
-        }
-    }
-    else return cmd_move;
-}
-*/
 #endif

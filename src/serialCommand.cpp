@@ -1,13 +1,14 @@
 #include"serialCommand.h"
+char indexsList[maxArguments] = {'a','b','c','d','e'};
 serialCom::serialCom() {
 
 }
 // command format: 'command' -tag value -tag value ....
 // ex: move -a 10 -b 20 -c 30
 commands serialCom::commandHandle(){
-    if (Serial.available() > 0){
+    if (ComPort.available() > 0){
         //read characters from Serial
-        char incomingChar = Serial.read();
+        char incomingChar = ComPort.read();
         incomingCommand += incomingChar;
         //when hit enter
         if (incomingChar == '\n' || incomingChar == '\r'){
@@ -26,16 +27,30 @@ commands serialCom::commandHandle(){
                 readFrom(7, Command);
                 return cmd_moveto;
             } 
-            else if (Command.startsWith("position")){
+            else if (Command.startsWith("position ")){
                 
                 return cmd_position;
             }
-            else if (Command.startsWith("setpos")){
-                readFrom(7, Command);
-                return cmd_setpos;
+            else if (Command.startsWith("currentPos ")){
+                readFrom(10, Command);
+                return cmd_currentPos;
             }
-            else if (Command.startsWith("refpos")){
-                return cmd_refpos;
+            else if (Command.startsWith("grip ")){
+                return cmd_grip;
+            }
+            else if (Command.startsWith("release ")){
+                return cmd_release;
+            }
+            else if (Command.startsWith("moveref ")){
+                return cmd_moveref;
+            }
+            else if (Command.startsWith("humanInterface ")){
+                HumanInterface =1;
+                return cmd_humanInterface;
+            }
+            else if (Command.startsWith("ros2Interface ")){
+                HumanInterface =0;
+                return cmd_ros2Interface;
             }
             else {
                 return cmd_invalid;
@@ -44,59 +59,7 @@ commands serialCom::commandHandle(){
     }
         return cmd_none;
 }
-/*/
-void serialCom::readFrom(unsigned int pos, String Command){
-    unsigned int startIndex = pos;
-    unsigned int i = 0;
-    int spaceIndex = -1;
-    unsigned int hyphenIndex = -1;
 
-    while(startIndex < Command.length() && i < maxArguments){ // Changed <= to < for safety
-        // Find the hyphen
-        hyphenIndex = Command.indexOf('-', startIndex);
-        
-        // Safety check: if no more hyphens, stop
-        if(hyphenIndex == -1) break;
-
-        // Find the space after the value (e.g., -a 10[space])
-        spaceIndex = Command.indexOf(' ', hyphenIndex);
-        
-        // Look for the NEXT space to ensure we capture the full number if formatted like "-a 10 -b 20"
-        // Actually, simpler logic: finding the space after the hyphen usually gives the tag, 
-        // then finding the next space gives the value range.
-        
-        // Let's stick to your structure but fix the tag extraction:
-        // Assume format: ... -a 10.0 ...
-        
-        // 1. Get the tag char (index after hyphen)
-        if(hyphenIndex + 1 < Command.length()){
-             Indexs[i] = Command.charAt(hyphenIndex + 1);
-             commandIndex[i] = Indexs[i]; // Store internally too if needed
-        }
-
-        // 2. Find end of the number value
-        // The number starts after the tag and a space usually? 
-        // Or is it "-a10" or "-a 10"? 
-        // Your parsing assumes "-a 10".
-        
-        int valueStartIndex = hyphenIndex + 2; // Skip '-' and 'a'
-        spaceIndex = Command.indexOf(' ', valueStartIndex); // Find end of number
-        
-        if (spaceIndex == -1) {
-            spaceIndex = Command.length(); // It's the last token
-        }
-
-        String valueStr = Command.substring(valueStartIndex, spaceIndex);
-        valueStr.trim(); // Clean up just in case
-        argument[i] = valueStr.toDouble(); 
-        
-        // Prepare for next loop
-        startIndex = spaceIndex; 
-        i++;
-    }
-}
-
-*/
 void serialCom::readFrom(unsigned int pos, String Command){
     unsigned int startIndex = pos;
     unsigned int i = 0;
@@ -114,7 +77,7 @@ void serialCom::readFrom(unsigned int pos, String Command){
         // 2. Extract the Tag (e.g., 'a')
         if(hyphenIndex + 1 < Command.length()){
              Indexs[i] = Command.charAt(hyphenIndex + 1);
-             commandIndex[i] = Indexs[i]; 
+             privateIndex[i] = Indexs[i]; 
         }
 
         // 3. Find the Start of the Number
@@ -138,7 +101,7 @@ void serialCom::readFrom(unsigned int pos, String Command){
         // Only try to convert if we actually have characters
         if (valueStart < spaceIndex) {
             String valueStr = Command.substring(valueStart, spaceIndex);
-            argument[i] = valueStr.toDouble(); 
+            privateArg[i] = valueStr.toDouble(); 
         }
 
         // Prepare for next loop
@@ -148,14 +111,73 @@ void serialCom::readFrom(unsigned int pos, String Command){
 }
 void serialCom::clearArgument(){
     for (int i = 0; i < maxArguments; i++){
-        argument[i] = 0.0;
-        commandIndex[i] = ' ';
+        privateArg[i] = 0.0;
+        privateIndex[i] = ' ';
+    }
+}
+void serialCom::getArgument(){
+    for (int i =0; i < maxArguments; i++){
+        Arguments[i] = privateArg [i];
+        Indexs[i] = privateIndex[i];
     }
 }
 
-void serialCom::getArgument(){
-    for (int i =0; i < maxArguments; i++){
-        Arguments[i] = argument [i];
-        Indexs[i] = commandIndex[i];
+bool serialCom::verifyChecksum(const serialPackage& pkg) {
+    uint8_t calcSum = 0;
+    
+    const uint8_t* ptr = (const uint8_t*)&pkg;
+
+    for (int i = 0; i < sizeof(pkg) - 1; i++) {
+        calcSum ^= ptr[i];
     }
+
+    return (calcSum == pkg.checksum);
+}
+
+commands serialCom::readNode(){
+    const uint8_t START_BYTE = NODE_STARTBYTE;
+    if (ComPort.available() >= sizeof(serialPackage)) {
+        // Read bytes into a buffer
+        serialPackage pkg;
+        if (ComPort.peek() != START_BYTE) {
+            // Discard invalid byte
+            ComPort.read();
+            return cmd_invalid;
+        }
+
+        ComPort.readBytes((char*)&pkg, sizeof(serialPackage));
+        
+        // Verify checksum
+        if (!verifyChecksum(pkg)) {
+            return cmd_invalid;
+        }
+
+        // Copy arguments and indexes
+        for (int i = 0; i < maxArguments; i++) {
+            privateArg[i] = pkg.Arguments[i];
+            // Assuming commandIndex is derived from bitmask or other means
+            privateIndex[i] = indexsList[i]; // Example mapping
+        }
+
+        // Determine command type based on commandID
+        switch (pkg.commandID) {
+            case 'M':
+                return cmd_move;
+            case 'A':
+                return cmd_moveto;
+            case 'P':
+                return cmd_position;
+            case 'C':
+                return cmd_currentPos;
+            case 'G':
+                return cmd_grip;
+            case 'R':
+                return cmd_release;
+            case 'F':
+                return cmd_moveref;
+            default:
+                return cmd_invalid;
+        }
+    }
+    return cmd_none;
 }

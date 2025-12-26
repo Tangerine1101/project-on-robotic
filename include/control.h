@@ -3,11 +3,14 @@
 
 #include <Arduino.h>
 #include <AccelStepper.h>
+#include <Servo.h>
 #include "config.h"
 
+#define gripOpen    180
+#define gripClose   90
+#define refStep   2  //steps to move when searching for reference switch
 // Mapping logic: 
-// We assume 'a' = Joint 1, 'b' = Joint 2, 'c' = Joint 3, 'd' = Joint 4
-// If you use different tags, update the switch cases in cpp.
+// assume 'a' = Joint 1, 'b' = Joint 2, 'c' = Joint 3, 'd' = Joint 4, 'e' = Grip
 
 class motorControl {
     public:
@@ -18,7 +21,10 @@ class motorControl {
         void move(char axis, float angle);   // Relative move
         void moveto(char axis, float angle); // Absolute move
         void setpos(char axis, float angle);
-        void refpos();
+        void gripPos(int angle);
+        void movetoRef();
+        void refCalibrate();
+        void angleTopic();
         // Essential system functions
         void run(); // Must be called in the main loop constantly!
         void reportPosition(); // Prints current angles to Serial
@@ -27,12 +33,13 @@ class motorControl {
         // Helper to convert degrees to steps
         long angleToSteps(float angle);
         float stepsToAngle(long steps);
-
+        const int jointsDir[3] = {1,-1,1}; // Define direction for each joint
         // Define the 4 steppers using the interface type 1 (Driver)
         AccelStepper joint1;
         AccelStepper joint2;
         AccelStepper joint3;
-        AccelStepper joint4;
+        Servo joint4, grip;
+        
 };
 
 #endif
