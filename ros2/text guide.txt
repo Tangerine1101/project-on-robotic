@@ -1,0 +1,12 @@
+
+Package 	    ros2 pkg list	        ros2 pkg executable [tên_gói]
+Topic	        ros2 topic list	        ros2 topic info [tên_topic]
+Service	        ros2 service list	    ros2 service type [tên_service]
+Action	        ros2 action list	    ros2 action info [tên_action]
+Node	        ros2 node list	        ros2 node info [tên_node]
+
+ros2 topic pub [tên_topic] [kiểu_dữ_liệu] "[dữ_liệu]"
+
+ros2 service call [tên_service] [kiểu_dữ_liệu] "[tham_số]"
+
+ros2 action send_goal [tên_action] [kiểu_action] "[dữ_liệu_goal]"

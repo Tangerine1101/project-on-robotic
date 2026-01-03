@@ -1,0 +1,21 @@
+[0.552s] Invoking command in '/workspaces/project_on_robotic/ros2/build/pkg': PYTHONPATH=/workspaces/project_on_robotic/ros2/build/pkg/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/workspaces/project_on_robotic/ros2/install/pkg/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /workspaces/project_on_robotic/ros2/build/pkg/build --no-deps symlink_data
+[0.763s] running develop
+[0.900s] running egg_info
+[0.901s] writing pkg.egg-info/PKG-INFO
+[0.901s] writing dependency_links to pkg.egg-info/dependency_links.txt
+[0.901s] writing entry points to pkg.egg-info/entry_points.txt
+[0.901s] writing requirements to pkg.egg-info/requires.txt
+[0.901s] writing top-level names to pkg.egg-info/top_level.txt
+[0.903s] reading manifest file 'pkg.egg-info/SOURCES.txt'
+[0.905s] writing manifest file 'pkg.egg-info/SOURCES.txt'
+[0.907s] running build_ext
+[0.907s] Creating /workspaces/project_on_robotic/ros2/install/pkg/lib/python3.10/site-packages/pkg.egg-link (link to .)
+[0.908s] Installing driver script to /workspaces/project_on_robotic/ros2/install/pkg/lib/pkg
+[0.908s] Installing planner script to /workspaces/project_on_robotic/ros2/install/pkg/lib/pkg
+[0.908s] Installing vision script to /workspaces/project_on_robotic/ros2/install/pkg/lib/pkg
+[0.909s] 
+[0.909s] Installed /workspaces/project_on_robotic/ros2/build/pkg
+[0.909s] running symlink_data
+[0.909s] symbolically linking /workspaces/project_on_robotic/ros2/build/pkg/launch/novision.launch.py -> /workspaces/project_on_robotic/ros2/install/pkg/share/pkg/launch
+[0.909s] symbolically linking /workspaces/project_on_robotic/ros2/build/pkg/launch/run.launch.py -> /workspaces/project_on_robotic/ros2/install/pkg/share/pkg/launch
+[0.948s] Invoked command in '/workspaces/project_on_robotic/ros2/build/pkg' returned '0': PYTHONPATH=/workspaces/project_on_robotic/ros2/build/pkg/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/workspaces/project_on_robotic/ros2/install/pkg/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /workspaces/project_on_robotic/ros2/build/pkg/build --no-deps symlink_data

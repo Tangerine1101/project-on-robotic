@@ -1,0 +1,19 @@
+[0.506s] Invoking command in '/workspaces/project_on_robotic/ros2/build/pkg': PYTHONPATH=/workspaces/project_on_robotic/ros2/build/pkg/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/workspaces/project_on_robotic/ros2/install/pkg/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /workspaces/project_on_robotic/ros2/build/pkg/build --no-deps symlink_data
+[0.721s] running develop
+[0.842s] running egg_info
+[0.843s] writing pkg.egg-info/PKG-INFO
+[0.843s] writing dependency_links to pkg.egg-info/dependency_links.txt
+[0.843s] writing entry points to pkg.egg-info/entry_points.txt
+[0.843s] writing requirements to pkg.egg-info/requires.txt
+[0.843s] writing top-level names to pkg.egg-info/top_level.txt
+[0.844s] reading manifest file 'pkg.egg-info/SOURCES.txt'
+[0.845s] writing manifest file 'pkg.egg-info/SOURCES.txt'
+[0.846s] running build_ext
+[0.846s] Creating /workspaces/project_on_robotic/ros2/install/pkg/lib/python3.10/site-packages/pkg.egg-link (link to .)
+[0.847s] Installing driver script to /workspaces/project_on_robotic/ros2/install/pkg/lib/pkg
+[0.847s] Installing planner script to /workspaces/project_on_robotic/ros2/install/pkg/lib/pkg
+[0.847s] Installing vision script to /workspaces/project_on_robotic/ros2/install/pkg/lib/pkg
+[0.847s] 
+[0.847s] Installed /workspaces/project_on_robotic/ros2/build/pkg
+[0.847s] running symlink_data
+[0.883s] Invoked command in '/workspaces/project_on_robotic/ros2/build/pkg' returned '0': PYTHONPATH=/workspaces/project_on_robotic/ros2/build/pkg/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/workspaces/project_on_robotic/ros2/install/pkg/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /workspaces/project_on_robotic/ros2/build/pkg/build --no-deps symlink_data
