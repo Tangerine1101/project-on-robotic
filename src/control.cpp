@@ -11,6 +11,7 @@ motorControl::motorControl() :
 {
     joint4.attach(servo4);
     grip.attach(servo5);
+    motorControl::init();
 }
 
 void motorControl::init() {
@@ -29,15 +30,9 @@ void motorControl::init() {
     joint3.setAcceleration(acceleration);
     joint3.setMinPulseWidth(20);
     joint3.setPinsInverted(JOINT3_DIR,COMMON_CATHODE,0);
-    // Joint 4
-    
+    // Joint 4    
 }
 
-
-void motorControl::moveJoint(long step){
-    joint1.move(step);
-    joint1.run();
-}
 // Helper: Convert degrees to steps
 long motorControl::angleToSteps(float angle) {
     // Formula: (Angle / 360) * StepsPerRev * GearRatio * MicroStep
@@ -65,9 +60,7 @@ void motorControl::move(char axis, float angle) {
 // ABSOLUTE MOVE: Move to specific angle X
 void motorControl::moveto(char axis, float angle) {
     long steps = angleToSteps(angle);
-    if (!safety_check(axis, angle)){
-        return;
-    }
+
     switch(axis) {
         case 'a': joint1.moveTo(steps); break;
         case 'b': joint2.moveTo(steps); break;
@@ -91,22 +84,36 @@ void motorControl::setpos(char axis, float angle){
         case 'b': joint2.setCurrentPosition(steps); break;
         case 'c': joint3.setCurrentPosition(steps); break;
         case 'd': break;
+        case 'e': break;
         default: ComPort.println("[ERROR] Invalid Axis"); break;
 
     }
 }
-void motorControl::refCalibrate(){
 
-    ComPort.println("[PROCESSING] Calibrating...");
-    while (!digitalRead(refA) && !digitalRead(refB) && !digitalRead(refC) && ComPort.available() ==0){
+void motorControl::refCalibrate(bool interrupt){
+    if (HumanInterface)
+        ComPort.println("[PROCESSING] Calibrating...");
+    else {
+        ComPort.print(NODE_SENDBYTE); ComPort.println("Calibrating...");
+    }
+    unsigned long timeout_check = millis();
+    while (!digitalRead(refA) && !digitalRead(refB) && !digitalRead(refC) && ComPort.available() ==0 && !interrupt){
         joint1.move(jointsDir[0]*refStep);
         joint2.move(jointsDir[1]*refStep);
         joint3.move(jointsDir[2]*refStep);
         run();
+        if (timeout_check - millis() >= 10000){
+            ComPort.print(NODE_SENDBYTE); ComPort.println("Calibrate timeout");
+        }
     }
-
-    ComPort.println("[DONE] Calibration done.");
-
+    joint1.setCurrentPosition(REF_A);
+    joint2.setCurrentPosition(REF_B);
+    joint3.setCurrentPosition(REF_C);
+    if(HumanInterface)
+        ComPort.println("[DONE] Calibration done.");
+    else {
+        ComPort.print(NODE_SENDBYTE); ComPort.println("Calibrated");
+    }
 }
 // Checks if motors need to step. CALL THIS OFTEN.
 void motorControl::run() {
@@ -130,11 +137,19 @@ void motorControl::angleTopic() { //print joint & grip position to Serial, for r
     ComPort.print(joint4.read());ComPort.print(",");
     ComPort.println(grip.read());
 }
-bool motorControl::safety_check(char axis, float angle){
+bool motorControl::safety_check(char axis, float angle){ //under development
     if(0){
         ComPort.println("Error: Safety check fail");
     }
     else{
         return 1;
     }
+}
+
+void motorControl::get_angles(){
+    angles[0] = stepsToAngle(joint1.currentPosition());
+    angles[1] = stepsToAngle(joint2.currentPosition());
+    angles[2] = stepsToAngle(joint3.currentPosition());
+    angles[3] = joint4.read();
+    angles[4] = grip.read();
 }

@@ -16,19 +16,20 @@ class motorControl {
     public:
         motorControl();
         void init();
-        void moveJoint(long step);
         // The core functions 
         void move(char axis, float angle);   // Relative move
         void moveto(char axis, float angle); // Absolute move
         void setpos(char axis, float angle);
         void gripPos(int angle);
         void movetoRef();
-        void refCalibrate();
+        void refCalibrate(bool interrupt);
         void angleTopic();
         // Essential system functions
         void run(); // Must be called in the main loop constantly!
         void reportPosition(); // Prints current angles to Serial
         bool safety_check(char axis, float angle);
+        void get_angles();
+        float angles[maxArguments]; // Store current angles of joints and grip
     private:
         // Helper to convert degrees to steps
         long angleToSteps(float angle);
@@ -41,5 +42,7 @@ class motorControl {
         Servo joint4, grip;
         
 };
+
+
 
 #endif

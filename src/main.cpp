@@ -4,11 +4,14 @@
 // Instantiate objects
 serialCom serialCLI;
 motorControl robot;
+commands currentCommand;
 long preMillis;
 
 void operate();
 bool ifspin();
 void topicPrint();
+char getStateID();
+char getCommandID();
 
 void setup() {
     ComPort.begin(115200); // Make sure this matches your monitor
@@ -23,7 +26,8 @@ void setup() {
 
 void loop() {
     operate();
-    topicPrint();
+    if (!HumanInterface) topicPrint();
+    //serialCLI.packageDebug();
 }
 
 
@@ -36,6 +40,8 @@ void operate() {
     else {
         cmd = serialCLI.readNode();
     }
+    if (cmd != commands::cmd_none || getStateID() != 'P')
+    currentCommand = cmd;
     // 2. Process Command
     if (cmd == cmd_move) { // Relative move command
         // Get the parsed data
@@ -55,7 +61,6 @@ void operate() {
                 }
             }
         }
-        serialCLI.clearArgument(); // Cleanup
     }
     else if (cmd == cmd_moveto) { // Absolute move command
         serialCLI.getArgument(); 
@@ -72,7 +77,6 @@ void operate() {
                 }
             }
         }
-        serialCLI.clearArgument();
     }
     else if (cmd == cmd_position) { // Report current position
         robot.reportPosition();
@@ -92,10 +96,10 @@ void operate() {
                 }
             }
         }
-        serialCLI.clearArgument();
+
     }
     else if (cmd == cmd_moveref) {  // Calibrate to reference position
-        robot.refCalibrate();
+        robot.refCalibrate( serialCLI.readNode() != commands::cmd_abort && serialCLI.commandHandle() != commands::cmd_abort);
     }
     else if (cmd == cmd_grip) {
         robot.moveto('e', gripClose);
@@ -117,5 +121,39 @@ bool ifspin(){
 
 void topicPrint(){
     if (HumanInterface ==0 && ifspin())
-    robot.angleTopic();
+    robot.get_angles();
+    serialCLI.sendingPackage((char)currentCommand, getStateID(), robot.angles);
+    if (getStateID() != 'P'){
+        serialCLI.clearArgument();;
+    }
+
+}
+char getCommandID(){
+    static char cmdID;
+    if (cmdID == 0|| currentCommand != '~' || getStateID() != 'P' || currentCommand != commands::cmd_abort) 
+        cmdID = currentCommand;
+
+    return cmdID;
+
+}
+char getStateID(){
+    bool cons[maxArguments];
+    bool condition = 1;
+    robot.get_angles();
+    serialCLI.getArgument(); 
+
+    for(int i=0; i<maxArguments; i++) {
+        if (serialCLI.Indexs[i] != ' ' && serialCLI.Indexs[i] != 0){
+            cons[i] = abs(robot.angles[i] - serialCLI.Arguments[i]) <= 1.0;
+        }
+        else {
+            cons[i] = 1;
+        }
+        condition = condition && cons[i];
+    }
+
+    if (timeoutFlag) return 'F';
+    else if (condition) return 'D';
+    else return 'P';
+    
 }

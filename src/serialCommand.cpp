@@ -82,7 +82,7 @@ void serialCom::readFrom(unsigned int pos, String Command){
 
         // 3. Find the Start of the Number
         // Start looking 2 chars after hyphen (skip '-' and tag)
-        int valueStart = hyphenIndex + 2;
+        unsigned int valueStart = hyphenIndex + 2;
         
         // CRITICAL FIX: Skip any spaces between the tag and the number!
         while(valueStart < Command.length() && Command.charAt(valueStart) == ' ') {
@@ -127,11 +127,19 @@ bool serialCom::verifyChecksum(const serialPackage& pkg) {
     
     const uint8_t* ptr = (const uint8_t*)&pkg;
 
-    for (int i = 0; i < sizeof(pkg) - 1; i++) {
+    for (unsigned int i = 0; i < sizeof(pkg) - 1; i++) {
         calcSum ^= ptr[i];
     }
 
     return (calcSum == pkg.checksum);
+}
+
+uint8_t serialCom::checksumXOR(uint8_t* data, size_t length) {
+    uint8_t checksum = 0;
+    for (size_t i = 0; i < length; i++) {
+        checksum ^= data[i];
+    }
+    return checksum;
 }
 
 commands serialCom::readNode(){
@@ -146,7 +154,7 @@ commands serialCom::readNode(){
         }
 
         ComPort.readBytes((char*)&pkg, sizeof(serialPackage));
-        
+        pkgDeg = pkg; // Store for debugging
         // Verify checksum
         if (!verifyChecksum(pkg)) {
             return cmd_invalid;
@@ -156,28 +164,87 @@ commands serialCom::readNode(){
         for (int i = 0; i < maxArguments; i++) {
             privateArg[i] = pkg.Arguments[i];
             // Assuming commandIndex is derived from bitmask or other means
+            if(pkg.bitmask & (0x01 << i))
             privateIndex[i] = indexsList[i]; // Example mapping
         }
 
         // Determine command type based on commandID
         switch (pkg.commandID) {
-            case 'M':
+            case commands::cmd_move:
                 return cmd_move;
-            case 'A':
+            case commands::cmd_moveto:
                 return cmd_moveto;
-            case 'P':
+            case commands::cmd_position:
                 return cmd_position;
-            case 'C':
+            case commands::cmd_currentPos:
                 return cmd_currentPos;
-            case 'G':
+            case commands::cmd_grip:
                 return cmd_grip;
-            case 'R':
+            case commands::cmd_release:
                 return cmd_release;
-            case 'F':
+            case commands::cmd_moveref:
                 return cmd_moveref;
+            case commands::cmd_humanInterface:
+                HumanInterface = 1;
+                return cmd_humanInterface;
+            case commands::cmd_ros2Interface:
+                HumanInterface = 0;
+                return cmd_ros2Interface;
+            case commands::cmd_abort:
+                return cmd_abort;
             default:
                 return cmd_invalid;
         }
     }
     return cmd_none;
+}
+
+void serialCom::packageDebug() { //standalone debug function to print the last received package
+    if (ComPort.available() >= sizeof(serialPackage)) {
+        // Read bytes into a buffer
+        serialPackage pkg;
+        if (ComPort.peek() != NODE_STARTBYTE) {
+            // Discard invalid byte
+            ComPort.read();
+            return;
+        }
+
+        ComPort.readBytes((char*)&pkg, sizeof(serialPackage));
+        ComPort.print(pkg.startByte, HEX); ComPort.print(", ");
+        ComPort.print(pkg.commandID); ComPort.print(", ");
+        ComPort.print(pkg.bitmask, BIN); ComPort.print(", ");
+        for (int i = 0; i < maxArguments; i++) {
+            ComPort.print(pkg.Arguments[i]);
+            if (i < maxArguments - 1) ComPort.print(", ");      
+        }
+        ComPort.print(", "); ComPort.print(pkg.checksum, HEX);
+        ComPort.println();
+    }
+
+}
+
+void serialCom::sendingPackage(char processingID, char statusID, float args[maxArguments]){
+    sendPackage pkgToSend;
+    pkgToSend.startByte = NODE_SENDBYTE;
+    pkgToSend.processingID = processingID;
+    pkgToSend.statusID = statusID;
+    for (int i = 0; i < maxArguments; i++) {
+        pkgToSend.Arguments[i] = args[i];
+    }
+    // Calculate checksum
+    pkgToSend.checksum = checksumXOR((uint8_t*)&pkgToSend, sizeof(sendPackage) - 1);
+    // Send package
+    if (HumanInterface){
+    ComPort.print((char)NODE_SENDBYTE); ComPort.print(",");
+    ComPort.print((char)processingID); ComPort.print(",");
+    ComPort.print((char)statusID); ComPort.print(",");
+    for (int i = 0; i < maxArguments; i++) {
+        ComPort.print(args[i]);
+        if (i < maxArguments - 1) ComPort.print(",");      
+    }
+    ComPort.print(","); ComPort.println(pkgToSend.checksum, HEX);
+    }
+    else {
+        ComPort.write((uint8_t*)&pkgToSend, sizeof(sendPackage));
+    }
 }

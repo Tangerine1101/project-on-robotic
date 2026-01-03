@@ -1,17 +1,18 @@
-#ifndef CONFIG
+#ifndef CONFIG_H
+#define CONFIG_H  
 #include <Arduino.h>
 
-//#include <AccelStepper.h>
 //system default config
-#define SAMPLE_TIME 10 //millisecond
+#define SAMPLE_TIME 100 //millisecond
 #define GEAR_RATIO 13.7 
 #define STEP_PER_REV 200
 #define STEPPER_SPEED 60 //rpm
 #define MICRO_STEP  2
+#define maxArguments  5 //maximum arguments
 //Serial communicate
 #define BAUDRATE    115200
 #define NODE_STARTBYTE  0x23 // '#'
-#define NODE_SENDBYTE   0x40 // '@'
+#define NODE_SENDBYTE   '@' // '@'
 //Reference angles
 #define REF_A   0
 #define REF_B   -20
@@ -24,40 +25,41 @@
 #define JOINT1_DIR   0
 #define JOINT2_DIR   0
 #define JOINT3_DIR   0
-extern Serial_& ComPort;
-extern UARTClass& ProgramPort;
+#define ProgramPort SerialUSB
+#define ComPort Serial
+inline bool timeoutFlag = 0;
 
 //config tb6600
 //pinout
-extern const int dir1; //stepper 1 pinout
-extern const int pul1;
-extern const int dir2; //stepper 2 pinout
-extern const int pul2;
-extern const int dir3; //stepper 3 pinout
-extern const int pul3;
-extern const int servo4;//servo 4 - joint 4
-extern const int servo5;//servo 5 - the grip
-extern const int refA; //reference switch for joint 1
-extern const int refB; //reference switch for joint 2
-extern const int refC; //reference switch for joint 3
-//extern const int refD; //reference switch for joint 4
-extern const int refVolt; //Reference high signal that plug in driver
+inline const int dir1 = 22; //stepper 1 pinout
+inline const int pul1= 23;
+inline const int dir2 = 24; //stepper 2 pinout
+inline const int pul2= 25;
+inline const int dir3 = 26; //stepper 3 pinout
+inline const int pul3= 27;
+inline const int servo4 = 28;//servo 4 - joint 4
+inline const int servo5 = 29;//servo 5 - the grip
+inline const int refA= 30; //reference switch for joint 1
+inline const int refB = 32; //reference switch for joint 2
+inline const int refC = 34; //reference switch for joint 3
+//const int refD = 36; //reference switch for joint 4
+inline const int refVolt = 40; //Reference high signal that plug in driver
 
 //stepper's parameters
-extern const int stepsPerRevolution; // Typical steps for a 1.8 degree motor in full step
-extern const float maxSpeed;       // Steps per second 
-extern const float acceleration;   // Steps per second squared 
+inline const int stepsPerRevolution = 200; // Typical steps for a 1.8 degree motor in full step
+inline const float maxSpeed = 2000;       // Steps per second 
+inline const float acceleration = 1000;   // Steps per second squared 
 //physical limited of each joint (IN STEP UNIT, NOT DEGREE)
-extern const double stepConvert;
-extern const long joint1Min;
-extern const long joint1Max;
-extern const long  joint2Min;
-extern const long  joint2Max;
-extern const long  joint3Min;
-extern const long  joint3Max;
-extern const long  joint4Min;
-extern const long  joint4Max; 
-extern const long  gripMin;
-extern const long  gripMax;
-extern bool HumanInterface;
+inline const double stepConvert = STEP_PER_REV*GEAR_RATIO*MICRO_STEP/360;
+inline const long joint1Min = 0 * stepConvert;
+inline const long joint1Max = 360 * stepConvert;
+inline const long  joint2Min = 0 * stepConvert;
+inline const long  joint2Max= 360 * stepConvert;
+inline const long  joint3Min =0 * stepConvert;
+inline const long  joint3Max = 360 * stepConvert;
+inline const long  joint4Min =0;
+inline const long  joint4Max = 180;
+inline const long  gripMin =0;
+inline const long  gripMax =180;
+inline bool HumanInterface = 0;
 #endif

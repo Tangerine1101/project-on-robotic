@@ -10,6 +10,13 @@ code.sh
 platformio.ini
 test/
 
+ros2
 ros2/.vscode
 ros2/Toan   
 ros2/Workflow.txt   
+ros2/build
+ros2/install
+
+lib
+test
+.gitignore
