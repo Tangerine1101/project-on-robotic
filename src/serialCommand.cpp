@@ -1,5 +1,5 @@
 #include"serialCommand.h"
-char indexsList[maxArguments] = {'a','b','c','d','e'};
+
 serialCom::serialCom() {
 
 }
@@ -246,5 +246,12 @@ void serialCom::sendingPackage(char processingID, char statusID, float args[maxA
     }
     else {
         ComPort.write((uint8_t*)&pkgToSend, sizeof(sendPackage));
+    }
+}
+
+void serialCom::writeArgument(int index, float value, char tag){
+    if (index >=0 && index < maxArguments){
+        privateArg[index] = value;
+        privateIndex[index] = tag;
     }
 }

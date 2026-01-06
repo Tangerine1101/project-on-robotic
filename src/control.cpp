@@ -8,7 +8,11 @@ motorControl::motorControl() :
     joint3(AccelStepper::DRIVER, pul3, dir3),
     joint4(),
     grip()
-{
+{   
+    joint1.setPinsInverted(jointsDir[0],COMMON_CATHODE,0);
+    joint2.setPinsInverted(jointsDir[1],COMMON_CATHODE,0);
+    joint3.setPinsInverted(jointsDir[2],COMMON_CATHODE,0);
+    // Attach servos to their pins
     joint4.attach(servo4);
     grip.attach(servo5);
     motorControl::init();
@@ -19,17 +23,14 @@ void motorControl::init() {
     joint1.setMaxSpeed(maxSpeed);
     joint1.setAcceleration(acceleration);
     joint1.setMinPulseWidth(20);
-    joint1.setPinsInverted(JOINT1_DIR,COMMON_CATHODE,0);
     // Joint 2
     joint2.setMaxSpeed(maxSpeed);
     joint2.setAcceleration(acceleration);
     joint2.setMinPulseWidth(20);
-    joint2.setPinsInverted(JOINT2_DIR,COMMON_CATHODE,0);
     // Joint 3
     joint3.setMaxSpeed(maxSpeed);
     joint3.setAcceleration(acceleration);
     joint3.setMinPulseWidth(20);
-    joint3.setPinsInverted(JOINT3_DIR,COMMON_CATHODE,0);
     // Joint 4    
 }
 
@@ -90,14 +91,14 @@ void motorControl::setpos(char axis, float angle){
     }
 }
 
-void motorControl::refCalibrate(bool interrupt){
+void motorControl::refCalibrate(bool interrupt){    
     if (HumanInterface)
         ComPort.println("[PROCESSING] Calibrating...");
     else {
-        ComPort.print(NODE_SENDBYTE); ComPort.println("Calibrating...");
+        ComPort.print(NODE_SENDBYTE); ComPort.println("FP");
     }
     unsigned long timeout_check = millis();
-    while (!digitalRead(refA) && !digitalRead(refB) && !digitalRead(refC) && ComPort.available() ==0 && !interrupt){
+    while ((!digitalRead(refA) && !digitalRead(refB) && !digitalRead(refC) && ComPort.available() ==0 && !interrupt) && 0){
         joint1.move(jointsDir[0]*refStep);
         joint2.move(jointsDir[1]*refStep);
         joint3.move(jointsDir[2]*refStep);
@@ -106,13 +107,15 @@ void motorControl::refCalibrate(bool interrupt){
             ComPort.print(NODE_SENDBYTE); ComPort.println("Calibrate timeout");
         }
     }
-    joint1.setCurrentPosition(REF_A);
-    joint2.setCurrentPosition(REF_B);
-    joint3.setCurrentPosition(REF_C);
+    joint1.setCurrentPosition(angleToSteps(REF_A));
+    joint2.setCurrentPosition(angleToSteps(REF_B));
+    joint3.setCurrentPosition(angleToSteps(REF_C));
+    joint4.write(REF_D);
+    grip.write(REF_E);
     if(HumanInterface)
         ComPort.println("[DONE] Calibration done.");
     else {
-        ComPort.print(NODE_SENDBYTE); ComPort.println("Calibrated");
+        ComPort.print(NODE_SENDBYTE); ComPort.println("FD");
     }
 }
 // Checks if motors need to step. CALL THIS OFTEN.

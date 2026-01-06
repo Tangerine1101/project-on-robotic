@@ -26,7 +26,7 @@ void setup() {
 
 void loop() {
     operate();
-    if (!HumanInterface) topicPrint();
+    topicPrint();
     //serialCLI.packageDebug();
 }
 
@@ -99,6 +99,9 @@ void operate() {
 
     }
     else if (cmd == cmd_moveref) {  // Calibrate to reference position
+        for(int i=0; i<maxArguments; i++) {
+            serialCLI.writeArgument(i, -1.0, serialCLI.indexsList[i]); // Clear arguments
+        }
         robot.refCalibrate( serialCLI.readNode() != commands::cmd_abort && serialCLI.commandHandle() != commands::cmd_abort);
     }
     else if (cmd == cmd_grip) {
@@ -151,7 +154,7 @@ char getStateID(){
         }
         condition = condition && cons[i];
     }
-
+    if (currentCommand == commands::cmd_moveref) return 'D';
     if (timeoutFlag) return 'F';
     else if (condition) return 'D';
     else return 'P';

@@ -22,11 +22,9 @@
 
 //define how the drivers are connected
 #define COMMON_CATHODE  1
-#define JOINT1_DIR   0
-#define JOINT2_DIR   0
-#define JOINT3_DIR   0
-#define ProgramPort SerialUSB
-#define ComPort Serial
+const int jointsDir[3] = {1,1,-1}; // Define direction for each joint
+#define ProgramPort Serial
+#define ComPort SerialUSB
 inline bool timeoutFlag = 0;
 
 //config tb6600
@@ -61,5 +59,5 @@ inline const long  joint4Min =0;
 inline const long  joint4Max = 180;
 inline const long  gripMin =0;
 inline const long  gripMax =180;
-inline bool HumanInterface = 0;
+inline bool HumanInterface = 1; // 1: human interface, 0: ROS2 interface
 #endif

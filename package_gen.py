@@ -5,9 +5,9 @@ import struct
 import json
 
 # Packet configuration
-CMD_ID = 'A'
+CMD_ID = 'H'
 BITMASK = 0x1F
-TARGETS = [12.3, 34.5, 59.3, 30.0, 90.0]
+TARGETS = [0.0, 0.0, 0.0, 30.0, 90.0]
 
 # Protocol constants
 START_BYTE = 0x23
@@ -44,7 +44,7 @@ def generate_packet():
     print("HEX STRING (Raw):")
     print(hex_output)
 
-    print(f'echo "{hex_output}" | xxd -r -p > /dev/ttyACM0')
+    print(f'echo "{hex_output}" | xxd -r -p > /dev/ttyACM1')
 
 def generate_ros2_vision_command():
     # Giả lập dữ liệu vật thể (onion hoặc garlic)

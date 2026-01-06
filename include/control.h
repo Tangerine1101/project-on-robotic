@@ -34,7 +34,6 @@ class motorControl {
         // Helper to convert degrees to steps
         long angleToSteps(float angle);
         float stepsToAngle(long steps);
-        const int jointsDir[3] = {1,-1,1}; // Define direction for each joint
         // Define the 4 steppers using the interface type 1 (Driver)
         AccelStepper joint1;
         AccelStepper joint2;

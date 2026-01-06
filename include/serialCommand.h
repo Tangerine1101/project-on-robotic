@@ -58,11 +58,13 @@ class serialCom {
         void readFrom(unsigned int pos, String Command);
         void clearArgument();
         void getArgument();
+        void writeArgument(int index, float value, char tag);
         float Arguments[maxArguments];
         char Indexs[maxArguments];
         void packageDebug();
         void sendingPackage(char processingID, char statusID, float args[maxArguments]);
         uint8_t checksumXOR(uint8_t* data, size_t length);
+        const char indexsList[maxArguments] = {'a', 'b', 'c', 'd', 'e'};
     private:
         serialPackage pkgDeg;
         String incomingCommand = "";
