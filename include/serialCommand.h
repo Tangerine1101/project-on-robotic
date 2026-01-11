@@ -62,8 +62,8 @@ class serialCom {
         float Arguments[maxArguments];
         char Indexs[maxArguments];
         void packageDebug();
-        void sendingPackage(char processingID, char statusID, float args[maxArguments]);
-        uint8_t checksumXOR(uint8_t* data, size_t length);
+        static void sendingPackage(char processingID, char statusID, float args[maxArguments]);
+        static uint8_t checksumXOR(uint8_t* data, size_t length);
         const char indexsList[maxArguments] = {'a', 'b', 'c', 'd', 'e'};
     private:
         serialPackage pkgDeg;

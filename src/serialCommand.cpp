@@ -1,4 +1,4 @@
-#include"serialCommand.h"
+#include "serialCommand.h"
 
 serialCom::serialCom() {
 
@@ -27,7 +27,7 @@ commands serialCom::commandHandle(){
                 readFrom(7, Command);
                 return cmd_moveto;
             } 
-            else if (Command.startsWith("position ")){
+            else if (Command.startsWith("position")){
                 
                 return cmd_position;
             }
@@ -35,20 +35,20 @@ commands serialCom::commandHandle(){
                 readFrom(10, Command);
                 return cmd_currentPos;
             }
-            else if (Command.startsWith("grip ")){
+            else if (Command.startsWith("grip")){
                 return cmd_grip;
             }
-            else if (Command.startsWith("release ")){
+            else if (Command.startsWith("release")){
                 return cmd_release;
             }
-            else if (Command.startsWith("moveref ")){
+            else if (Command.startsWith("moveref")){
                 return cmd_moveref;
             }
-            else if (Command.startsWith("humanInterface ")){
+            else if (Command.startsWith("humanInterface")){
                 HumanInterface =1;
                 return cmd_humanInterface;
             }
-            else if (Command.startsWith("ros2Interface ")){
+            else if (Command.startsWith("ros2Interface")){
                 HumanInterface =0;
                 return cmd_ros2Interface;
             }

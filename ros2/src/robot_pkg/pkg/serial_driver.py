@@ -22,8 +22,14 @@ class SerialDriver(Node):
         self.group = ReentrantCallbackGroup()
 
         # --- ARDUINO PROTOCOL ---
-        self.START_BYTE = 0x23 # '#'
+        # Match Arduino's config.h: NODE_STARTBYTE = 0xAA, NODE_SENDBYTE = 0xFE
+        self.START_BYTE = 0xAA  # 0xAA = NODE_STARTBYTE (commands sent TO Arduino)
         self.PKG_FORMAT = '<B c B 5f B'  # StartByte, CmdID, Bitmask, 5x Float Args, Checksum
+        # Incoming (Arduino -> PC) package format: SendByte, ProcessingID, StatusID, 5x Float Args, Checksum
+        self.IN_PKG_FORMAT = '<B c c 5f B'
+        self.IN_PKG_SIZE = struct.calcsize(self.IN_PKG_FORMAT)
+        # Receive buffer for assembling partial packets
+        self._rx_buffer = bytearray()
 
         # --- 1. LOAD PARAMETERS (From YAML) ---
         self.declare_parameter('port', '/dev/ttyACM0')
@@ -80,7 +86,7 @@ class SerialDriver(Node):
             # We don't exit, just let it fail gracefully or retry logic could be added here
 
     # --- BINARY PACKING ---
-    def send_binary_pkg(self, cmd_id: str, args: list, bitmask: int = 0b00010101):
+    def send_binary_pkg(self, cmd_id: str, args: list, bitmask: int = 0b00011111):
         """
         Packs and sends the serialPackage structure.
         :param cmd_id: The command character (e.g., 'A')
@@ -108,7 +114,11 @@ class SerialDriver(Node):
         # Final Pack with Checksum
         final_pkg = struct.pack(self.PKG_FORMAT, self.START_BYTE, cmd_id.encode(), int(safe_bitmask), *full_args, checksum)
         self.serial_conn.write(final_pkg)
-        # self.get_logger().info(f"Sent Packet: {cmd_id} Mask: {bin(safe_bitmask)}")
+        # Log packet send for debugging
+        try:
+            self.get_logger().debug(f"Sent Packet: cmd={cmd_id} mask={safe_bitmask:#04x} args={full_args}")
+        except Exception:
+            pass
 
     # --- THE CRITICAL HARDWARE LOOP (Action) ---
     async def execute_move_callback(self, goal_handle):
@@ -116,8 +126,15 @@ class SerialDriver(Node):
         
         targets = goal_handle.request.targets
         
-        # 1. Send Command to Arduino
-        self.send_binary_pkg('A', list(targets))
+        # 1. Send Command to Arduino (forward bitmask from goal)
+        # Extract bitmask from the goal (MoveArm.Goal.bitmask) if provided
+        try:
+            goal_bmask = int(goal_handle.request.bitmask) & 0xFF
+        except Exception:
+            goal_bmask = 0b00011111
+
+        self.get_logger().debug(f"Sending move packet: targets={targets} bitmask={goal_bmask:#04x}")
+        self.send_binary_pkg('A', list(targets), bitmask=goal_bmask)
         
         start_time = self.get_clock().now()
         feedback_msg = MoveArm.Feedback()
@@ -214,40 +231,93 @@ class SerialDriver(Node):
         return response
 
     # --- SERIAL READER (20Hz) ---
+    # --- SERIAL READER (Rewritten by Gchan) ---
     def read_serial_data(self):
+        """
+        Reads binary packets from the MCU strictly matching 'struct sendPackage'.
+        Format: <StartByte><ProcID><StatusID><Float*5><Checksum>
+        """
         if not self.serial_conn or not self.serial_conn.is_open:
             return
 
         try:
+            # 1. Read everything available into the buffer
             if self.serial_conn.in_waiting > 0:
-      
-                # Peek 1 byte
-                header = self.serial_conn.read(1) 
+                self._rx_buffer.extend(self.serial_conn.read(self.serial_conn.in_waiting))
+
+            # 2. Sliding Window Packet Search
+            # We loop as long as we have enough bytes for at least one packet
+            while len(self._rx_buffer) >= self.IN_PKG_SIZE:
                 
-                if header == b'@': # 0x40
-                    line = self.serial_conn.readline().decode('utf-8', errors='ignore').strip()
-                    if "Calibrated" in line:
-                        self.is_calibrated = True
-                        self.get_logger().info("Received Calibration Confirmation from Due")
-                        return
-                    # Line is now "10.0, 20.0, ..."
-                    parts = line.split(',')
-                    if len(parts) >= 4: 
-                        self.current_joints = [float(p) for p in parts]
+                # Check for Start Byte (Arduino uses NODE_SENDBYTE = 0xFE for outgoing packages)
+                # We interpret as unsigned char to match uint8_t
+                if self._rx_buffer[0] != 0xFE: # 0xFE = NODE_SENDBYTE
+                    # If index 0 isn't NODE_SENDBYTE, pop it and try next byte.
+                    # This effectively 'slides' the window forward.
+                    self._rx_buffer.pop(0)
+                    continue
+
+                # We have a candidate start byte. Now check the Checksum.
+                # Extract the candidate packet
+                candidate_pkt = self._rx_buffer[:self.IN_PKG_SIZE]
+                
+                # Calculate XOR Checksum of [0...N-2]
+                calc_checksum = 0
+                for b in candidate_pkt[:-1]:
+                    calc_checksum ^= b
+                
+                recv_checksum = candidate_pkt[-1]
+
+                # 3. Validation
+                if calc_checksum == recv_checksum:
+                    # VALID PACKET FOUND
+                    try:
+                        # Unpack: < B c c 5f B
+                        # B: StartByte
+                        # c: ProcessingID (char)
+                        # c: StatusID (char)
+                        # 5f: Arguments
+                        # B: Checksum
+                        data = struct.unpack(self.IN_PKG_FORMAT, candidate_pkt)
+                        
+                        proc_id = data[1].decode('utf-8', errors='replace')
+                        status_id = data[2].decode('utf-8', errors='replace')
+                        args = list(data[3:8]) # The 5 floats
+
+                        # Update State
+                        self.current_joints = args
+                        
+                        # Handle Acknowledgments based on your 'operate()' logic
+                        if proc_id == 'R' and status_id == 'D':
+                            self.latest_ack = "@released"
+                        elif proc_id == 'G' and status_id == 'D':
+                            self.latest_ack = "@griped"
+                        elif proc_id == 'F' and status_id == 'D':
+                            self.is_calibrated = True
+                            self.latest_ack = "@Calibrated"
+                        
+                        # Publish Joint States
                         msg = Float64MultiArray()
                         msg.data = self.current_joints
                         self.joint_pub.publish(msg)
-                else:
-                    # If it's not the header, we toss it to clear the buffer until we find one
-                    # Or just pass, assuming next loop catches it.
-                    # Reading indiscriminately helps clear garbage.
-                    pass
-                    
-        except ValueError:
-            pass 
-        except Exception as e:
-            self.get_logger().warn(f"Serial Read Error: {e}")
 
+                        # Remove the processed packet from buffer
+                        del self._rx_buffer[:self.IN_PKG_SIZE]
+
+                    except struct.error as e:
+                        self.get_logger().error(f"Struct Unpack Failed: {e}")
+                        # If unpack fails, it's garbage. Drop one byte and retry.
+                        self._rx_buffer.pop(0)
+
+                else:
+                    # Checksum Mismatch. 
+                    # This means the '@' we found was likely part of a Float, not a header.
+                    # Drop the first byte and search again.
+                    self.get_logger().debug(f"Checksum Fail: Calc {calc_checksum} != Recv {recv_checksum}")
+                    self._rx_buffer.pop(0)
+        
+        except Exception as e:
+            self.get_logger().error(f"Serial Loop Critical Fail: {e}")
 def main(args=None):
     rclpy.init(args=args)
     # MUST use MultiThreadedExecutor for ReentrantCallbackGroup to work!
