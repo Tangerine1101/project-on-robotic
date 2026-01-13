@@ -13,7 +13,8 @@ motorControl::motorControl() :
     joint4.attach(servo4);
     grip.attach(servo5);
     motorControl::init();
-    grip.write(gripClose);
+    grip.write(gripOpen);
+    joint4.write(HOME_D);
 }
 
 void motorControl::init() { // Initialize motor parameters2
@@ -35,31 +36,49 @@ void motorControl::init() { // Initialize motor parameters2
     // Joint 4    
 }
 
-// Checks if motors need to step. CALL THIS OFTEN.
-bool motorControl::run() {
+
+bool motorControl::run() {  // motor run callback function. 
     if(calibrating){
-        joint1.run();
-        joint2.run();
-        joint3.run();
+        if (limitSw_A || joint1.distanceToGo() > 0)
+            joint1.run();
+        if (limitSw_B || joint2.distanceToGo() < 0)
+            joint2.run();
+        if ((limitSw_C || joint3.distanceToGo() > 0) && (limitSw_B || joint3.distanceToGo() < 0))
+            joint3.run();
         return 1;
     }
     if (posWriting){
         return 1;
     }
-    if (JOINT_2_3_LIMIT_targetpos){
-        if (JOINT1_LIMITATION)
-        joint1.run();
-        if (JOINT2_LIMITATION && (joint2.distanceToGo() > 0 || JOINT_2_3_LIMIT_currentpos))
-        joint2.run();
-        if (JOINT3_LIMITATION && (joint3.distanceToGo() > 0 || JOINT_2_3_LIMIT_currentpos))
-        joint3.run();
-    return 1;
-    }
-    else {
+    if (!JOINT_2_3_LIMIT_targetpos){
         errorFlag = error_limitation_breaked;
+        joint1.stop();
+        joint2.stop();
+        joint3.stop();
         return 0;
+        
     }
+        if (JOINT1_LIMITATION){ // joint1: must not move counter clockwise when switch A is pressed
+            bool ifMoveCW = joint1.distanceToGo() > 0;
+            if (ifMoveCW || limitSw_A) 
+                joint1.run();
+        }
+        if (JOINT2_LIMITATION){ // joint2: must not move counter clockwise when switch B is pressed
+            bool ifMoveCW = joint2.distanceToGo() < 0;
+            bool safeToMoveCCW = JOINT_2_3_LIMIT_currentpos && limitSw_B;
+            if (ifMoveCW || safeToMoveCCW)
+                joint2.run();
+        }  
+        if (JOINT3_LIMITATION) {// joint3: must not move clockwise when switch B is pressed, and must not move counter clockwise when switch C is pressed
+            bool ifMoveCW = joint3.distanceToGo() > 0;
+            bool safeToMove_CW = ifMoveCW && (limitSw_B && JOINT_2_3_LIMIT_currentpos);
+            bool safeToMove_CCW = !ifMoveCW && (limitSw_C && JOINT_2_3_LIMIT_currentpos);
+            if (safeToMove_CCW || safeToMove_CW)
+                joint3.run();    
+        }
+    return 1;
 }
+// Helper: Convert steps back to degrees for reporting
 float motorControl::servoAngle(Servo joint){
     float pulse = joint.readMicroseconds();
     float angle = (pulse - 544.0) * (180.0 - 0.0) / (2400.0 - 544.0);
@@ -160,22 +179,33 @@ void motorControl::refCalibrate(bool interrupt){
     else {
         serialCom::sendingPackage('F','P', ref);
     }
-        unsigned long timeout_check = millis();
-
-    while ((!digitalRead(refA) && !digitalRead(refB) && !digitalRead(refC) && ComPort.available() ==0 && interrupt) && !debugMode){
-        delay(1);
-        if(!digitalRead(refA))
-        joint1.move(jointsDir[0]*refStep);
-        if (!digitalRead(refB))
-        joint2.move(jointsDir[1]*refStep);
-        if (!digitalRead(refC))
-        joint3.move(jointsDir[2]*refStep);
-
+    // phase 1: calibrate joint 2 and 3
+    unsigned long timeout_check = millis();
+    joint2.move(angleToSteps(jointsDir[1]*360));
+    joint3.move(angleToSteps(jointsDir[2]*360));
+    while ((digitalRead(refB) || digitalRead(refC)) && ComPort.available() ==0 && interrupt && !debugMode){
+        turnSW_A(digitalRead(refA));
+        turnSW_B(digitalRead(refB));
+        turnSW_C(digitalRead(refC));
         if (millis() - timeout_check >= TIMEOUT_LIMIT){
             serialCom::sendingPackage('F','F', ref);
             errorFlag = error_timeout;
             break;
-        }        
+        }
+
+    }
+    // phase 2: calibrate joint 1
+    timeout_check = millis();
+    joint1.move(angleToSteps(jointsDir[0]*360));
+    while(digitalRead(refA) && !debugMode){
+        turnSW_A(digitalRead(refA));
+        turnSW_B(digitalRead(refB));
+        turnSW_C(digitalRead(refC));
+        if (millis() - timeout_check >= TIMEOUT_LIMIT){
+            serialCom::sendingPackage('F','F', ref);
+            errorFlag = error_timeout;
+            break;
+        }
     }
 
     noInterrupts(); 
@@ -185,14 +215,17 @@ void motorControl::refCalibrate(bool interrupt){
     joint4.write(REF_D);
     grip.write(REF_E);
     
-    joint1.moveTo(0);
-    joint2.moveTo(angleToSteps(REF_B - 15));
-    joint3.moveTo(angleToSteps(REF_C + 5));
+    joint1.moveTo(HOME_A);
+    joint2.moveTo(angleToSteps(HOME_B));
+    joint3.moveTo(angleToSteps(HOME_C));
     interrupts();
-    timeout_check = millis();
 
-    while((joint1.currentPosition() != joint1.targetPosition() || joint2.currentPosition() != joint2.targetPosition() || joint3.currentPosition() != joint3.targetPosition()) && interrupt){
-        delay(1);
+    //phase 3: move to home position
+    timeout_check = millis();
+    while((joint1.distanceToGo() != 0 || joint2.distanceToGo() != 0 || joint3.distanceToGo() != 0) && interrupt){
+        turnSW_A(digitalRead(refA));
+        turnSW_B(digitalRead(refB));
+        turnSW_C(digitalRead(refC));
         if (millis() - timeout_check >= TIMEOUT_LIMIT){
             serialCom::sendingPackage('F','F', ref);
             errorFlag = error_timeout;
@@ -201,6 +234,7 @@ void motorControl::refCalibrate(bool interrupt){
     }
         
     calibrating = false;
+    delay(1000);
     if(HumanInterface)
         ComPort.println("[DONE] Calibration done.");
     else 
@@ -234,7 +268,7 @@ void motorControl::get_angles(){
 }
 
 bool motorControl::ifRun(){
-    return (joint1.run() || joint2.run() || joint3.run());
+    return (joint1.distanceToGo() != 0 || joint2.distanceToGo() != 0 || joint3.distanceToGo() != 0);
 }
 
 bool motorControl::jointBrake(char axis){
@@ -253,7 +287,9 @@ bool motorControl::jointBrake(char axis){
     }
     return 1;
 }
-
+void motorControl::debug(){
+    ComPort.println( JOINT1_LIMITATION && (joint1.distanceToGo() > 0 || digitalRead(refA)));
+}
 volatile bool motorControl::avoidCollision(char axis){
     switch(axis) {
         case 'b': 
@@ -268,3 +304,13 @@ volatile bool motorControl::avoidCollision(char axis){
     }
     return 1;
 }
+bool motorControl::turnSW_A(bool val){
+    return limitSw_A = val;
+}
+bool motorControl::turnSW_B(bool val){
+    return limitSw_B = val;
+}
+bool motorControl::turnSW_C(bool val){
+    return limitSw_C = val;
+}
+//

@@ -64,14 +64,16 @@ void setup() {
     attachInterrupt(refA, refA_ISR, FALLING);
     attachInterrupt(refB, refB_ISR, FALLING);
     attachInterrupt(refC, refC_ISR, FALLING);
-    
     if (HumanInterface) {
-        ComPort.println("System Initialized.");
+        ComPort.println("System Initialized.V1.1");
     }
     preMillis = millis();
 }
 
 void loop() {
+    robot.turnSW_A(digitalRead(refA));
+    robot.turnSW_B(digitalRead(refB));
+    robot.turnSW_C(digitalRead(refC));
     operate();
     if (errorFlag == error_limitation_breaked){
 
@@ -87,16 +89,18 @@ void loop() {
             if (robot.safety_check('c'))
             robot.jointBrake('c');
 
+            if (HumanInterface){
             ComPort.print(robot.safety_check('a'));
             ComPort.print(robot.safety_check('b'));
             ComPort.println(robot.safety_check('c'));
+            }
             errorFlag = error_none;
         }
     }
 }
 
 
-void operate() {
+void operate() { // Read Serial and move motors
     // 1. Check for new commands
     commands cmd; // Returns enum
     if (HumanInterface){
@@ -177,7 +181,6 @@ void operate() {
         serialCLI.sendingPackage((char)cmd, 'D', robot.angles);
     }
     
-    if (errorFlag == error_limitation_breaked) errorFlag = error_none;
     robot.posWriting = 0;
     serialCLI.clearArgument();
 }
@@ -193,6 +196,10 @@ bool ifspin(){
 void topicPrint(){
     robot.get_angles();
     serialCLI.sendingPackage((char)currentCommand, getStateID(), robot.angles);
+    ComPort.print(robot.turnSW_A(digitalRead(refA)));
+    ComPort.print(robot.turnSW_B(digitalRead(refB)));;
+    ComPort.println(robot.turnSW_C(digitalRead(refC)));
+    robot.debug();
 }
  
 char getCommandID(){
@@ -217,11 +224,11 @@ char getStateID(){
 //interrupt service routines
 
 void refA_ISR(){
-    robot.jointBrake('a');
+    robot.turnSW_A(0);
 }   
 void refB_ISR(){
-    robot.jointBrake('b');
+    robot.turnSW_B(0);
 }
 void refC_ISR(){
-    robot.jointBrake('c');
+    robot.turnSW_C(0);
 }

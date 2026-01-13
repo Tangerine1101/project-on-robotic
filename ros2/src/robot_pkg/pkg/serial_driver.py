@@ -51,7 +51,7 @@ class SerialDriver(Node):
         self.latest_ack = ""
         # --- 3. HARDWARE CONNECTION ---
         self.connect_serial()
-
+        self.boot_time = self.get_clock().now()
         # --- 4. INTERFACES ---
         # Action Server (The Brain)
         self._action_server = ActionServer(
@@ -79,12 +79,15 @@ class SerialDriver(Node):
     def connect_serial(self):
         try:
             self.serial_conn = serial.Serial(self.port, self.baud, timeout=0.1)
-            time.sleep(2) # Allow Arduino reset
             self.serial_conn.reset_input_buffer()
         except serial.SerialException as e:
             self.get_logger().fatal(f"❌ Could not open serial port: {e}")
             # We don't exit, just let it fail gracefully or retry logic could be added here
 
+    def check_boot_status(self):
+        if (self.get_clock().now() - self.boot_time).nanoseconds / 1e9 < 2.0:
+            return False
+        return True
     # --- BINARY PACKING ---
     def send_binary_pkg(self, cmd_id: str, args: list, bitmask: int = 0b00011111):
         """

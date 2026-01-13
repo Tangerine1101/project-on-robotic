@@ -20,7 +20,8 @@ class VisionNode(Node):
         self.declare_parameter('camera_offset_x', 0.0)
         self.declare_parameter('camera_offset_y', 0.0)
         self.declare_parameter('pixels_per_cm', 12.0)
-        
+        self.declare_parameter('camera_dev', 0)        
+        camera_dev = self.get_parameter('camera_dev').value
         # ---------------------------------------------------
         # 2. LOAD MODEL
         # ---------------------------------------------------
@@ -29,11 +30,11 @@ class VisionNode(Node):
         model_path = base_dir / "init/best.pt"  
         
         if not model_path.exists():
-            self.get_logger().error(f"❌ Model not found at {model_path}")
+            self.get_logger().error(f"Model not found at {model_path}")
             # Fallback for testing if custom path fails
             model_path = Path("best.pt") 
 
-        self.get_logger().info(f"✅ Loading YOLO model: {model_path}")
+        self.get_logger().info(f"Loading YOLO model: {model_path}")
         try:
             self.model = YOLO(str(model_path))
         except Exception as e:
@@ -43,13 +44,13 @@ class VisionNode(Node):
         # ---------------------------------------------------
         # 3. SETUP CAMERA
         # ---------------------------------------------------
-        self.cap = cv2.VideoCapture(5, cv2.CAP_V4L2)
+        self.cap = cv2.VideoCapture(camera_dev, cv2.CAP_V4L2)
         if not self.cap.isOpened():
             self.get_logger().warn("V4L2 failed, trying default...")
-            self.cap = cv2.VideoCapture(5)
+            self.cap = cv2.VideoCapture(camera_dev)
             
         if not self.cap.isOpened():
-            self.get_logger().fatal("❌ No Camera Found!")
+            self.get_logger().fatal("No Camera Found!")
             sys.exit(1)
 
         # ---------------------------------------------------
@@ -61,7 +62,7 @@ class VisionNode(Node):
         # Create a timer to run the loop at 10Hz (0.1s)
         self.timer = self.create_timer(0.1, self.timer_callback)
         
-        self.get_logger().info("✅ Vision Node Started. Ready to detect.")
+        self.get_logger().info("[OK] Vision Node Started. Ready to detect.")
 
     def timer_callback(self):
         ret, frame = self.cap.read()
@@ -73,7 +74,7 @@ class VisionNode(Node):
         offset_x = self.get_parameter('camera_offset_x').value
         offset_y = self.get_parameter('camera_offset_y').value
         px_per_cm = self.get_parameter('pixels_per_cm').value
-        
+        camera_dev = self.get_parameter('camera_dev').value
         # --- VISION LOGIC ---
         margin = 20
         results = self.model(frame, conf=0.7, verbose=False)

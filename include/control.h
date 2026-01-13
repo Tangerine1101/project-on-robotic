@@ -7,8 +7,7 @@
 #include "config.h"
 #include "serialCommand.h"
 
-#define gripOpen    REF_E
-#define gripClose   90
+
 #define refStep   2  //steps to move when searching for reference switch
 // Sum of joint 1 & 2 shouldn't exceed 60 degree to avoid interference
 inline constexpr long  collisionLimit = CONST_LROUND((60 - INTERFERENCE_OFFSET)*stepConvert);
@@ -41,7 +40,11 @@ class motorControl {
         float angles[maxArguments]; // Store current angles of joints and grip
         float servoAngle(Servo joint);
         bool jointBrake(char axis);
+        void debug();
         volatile bool safety_check(char axis);
+        bool turnSW_A(bool val);
+        bool turnSW_B(bool val);
+        bool turnSW_C(bool val);
     private:
         // Helper to convert degrees to steps
         volatile bool avoidCollision(char axis);
@@ -53,7 +56,10 @@ class motorControl {
         AccelStepper joint2;
         AccelStepper joint3;
         Servo joint4, grip;
-        
+
+        volatile bool limitSw_A = 1;
+        volatile bool limitSw_B = 1;
+        volatile bool limitSw_C = 1;        
 };
 
 

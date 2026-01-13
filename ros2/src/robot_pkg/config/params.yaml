@@ -2,12 +2,13 @@ serial_driver:
   ros__parameters:
     port: "/dev/ttyACM0"
     baudrate: 115200
-    tolerance: 0.5
+    tolerance: 1.5
     timeout_sec: 10.0
     read_frequency: 20.0
 
 vision_node:
   ros__parameters:
+    camera_dev: 01 
     camera_offset_x: 0.0   # cm
     camera_offset_y: 15.0  # cm (Example: Camera is 15cm in front of base)
     pixels_per_cm: 12.0

@@ -6,26 +6,29 @@ def wrap_to_pi(angle):
 
 def IK_fulls_1(T):
     """
+    Converted from IK_fulls_2.m
     Inverse kinematics
     Only keep solutions where:
     a > 0, b < 0, c > 0
     """
-    # Link lengths
-    l1, l2, l3, l4, l5, l6 = 170, 200, 220, 45, 0, 0
+    # Link lengths (mm) from IK_fulls_2.m
+    # Note: l6 is 105 in the MATLAB script (vs 60 in the original Python file)
+    l1, l2, l3, l4, l5, l6 = 170, 200, 220, 45, 50, 105
 
-    # Extract position
+    # Extract position from T
     Px = T[0, 3]
     Py = T[1, 3]
     Pz = T[2, 3]
 
     # Orientation constraint
+    # MATLAB: theta_14 = atan2(T(1,2), T(1,1));
     theta_14 = np.arctan2(T[0, 1], T[0, 0])
 
     tol = 1e-9
     Q = []   # store solutions (rad)
 
     # Base radius
-    R = np.sqrt(Px**2 + Py**2)
+    R = np.hypot(Px, Py)
 
     # q1 base
     if abs(R) < tol:
@@ -40,7 +43,7 @@ def IK_fulls_1(T):
 
         # Effective radius
         if abs(wrap_to_pi(q1 - q1_base)) < tol:
-            R_eff = +R
+            R_eff = R
         else:
             R_eff = -R
 
@@ -49,8 +52,13 @@ def IK_fulls_1(T):
         B = Pz - l1 + l5 + l6
 
         P = np.hypot(A, B)
+        
+        # Avoid division by zero if P is extremely small
+        if P < tol:
+            continue
 
         # Solve for D
+        # MATLAB: K = (l3^2 - A^2 - B^2 - l2^2) / (2*l2);
         K = (l3**2 - A**2 - B**2 - l2**2) / (2*l2)
         D = K / P
 
@@ -71,11 +79,12 @@ def IK_fulls_1(T):
             cosq3 = (A + l2*np.sin(q2)) / l3
             sinq3 = (l2*np.cos(q2) - B) / l3
 
+            # Check validity
             mag = np.hypot(cosq3, sinq3)
             if abs(mag - 1) > 1e-5:
                 continue
 
-            q3 = np.arctan2(sinq3/mag, cosq3/mag)
+            q3 = np.arctan2(sinq3, cosq3)
 
             # q4 from orientation
             q4 = q1 - theta_14
@@ -102,6 +111,7 @@ def IK_fulls_1(T):
     # ============================
     # FILTER: a > 0, b < 0, c > 0
     # ============================
+    # MATLAB: idx = (Q(:,1) > 0) & (Q(:,2) < 0) & (Q(:,3) > 0);
     mask = (Q[:, 0] > 0) & (Q[:, 1] < 0) & (Q[:, 2] > 0)
     Q = Q[mask]
 

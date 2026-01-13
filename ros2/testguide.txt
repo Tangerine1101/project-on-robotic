@@ -1,0 +1,99 @@
+
+Package 	    ros2 pkg list	        ros2 pkg executable [tên_gói]
+Topic	        ros2 topic list	        ros2 topic info [tên_topic]
+Service	        ros2 service list	    ros2 service type [tên_service]
+Action	        ros2 action list	    ros2 action info [tên_action]
+Node	        ros2 node list	        ros2 node info [tên_node]
+ros2 topic pub [tên_topic] [kiểu_dữ_liệu] "[dữ_liệu]"
+
+ros2 service call [tên_service] [kiểu_dữ_liệu] "[tham_số]"
+
+ros2 action send_goal [tên_action] [kiểu_action] "[dữ_liệu_goal]"
+
+---
+
+Manual Terminal Test Guide: Vision → Planner → Driver (Serial)
+
+Purpose:
+- Quick manual tests to exercise the vision → planner → driver flow and to validate serial packets and responses.
+
+Files & symbols to inspect before testing:
+- Vision node: `ros2/src/robot_pkg/pkg/vision.py` (e.g., `VisionNode.timer_callback`)
+- Planner node: `ros2/src/robot_pkg/pkg/planner_node.py` (`brain_loop`, `solve_ik`, `send_arm_goal`)
+- Serial driver: `ros2/src/robot_pkg/pkg/serial_driver.py` (`send_binary_pkg`, `grip_handle_callback`, `execute_move_callback`)
+- Helpers: `package_gen.py` (generate binary test packets), `package_receive.py` (monitor serial traffic)
+
+Pre-checks (before any test):
+1. Confirm ROS nodes are running:
+   ros2 node list
+2. Check topics/services/actions exist:
+   ros2 topic list
+   ros2 service list
+   ros2 action list
+3. Optional: run serial monitor helper to view raw traffic
+   python3 package_receive.py  # adjust port inside script if needed
+
+A) End-to-end: Vision → Planner → Driver
+1. Publish a fake detection to the vision topic (example: one "onion"):
+   ros2 topic pub -1 /vision/detections std_msgs/msg/String "{data: '[{"name":"onion","x":20.5,"y":10.2,"z":0.0}]'}"
+
+Expected:
+- Planner logs will show it detected the object and attempted an IK/plan.
+- If reachable, planner will call the action `/move_arm` and the serial driver will write the binary packet to the MCU.
+- Monitor joint state updates:
+  ros2 topic echo /joint_states
+
+B) Grip control (open/close) via service
+1. Close grip (example):
+   ros2 service call /grip_control robot_interfaces/srv/GripCommand "{command: 'close'}"
+
+Expected:
+- Serial driver sends grip packet and MCU should ack; `package_receive.py` or MCU logs should show the outgoing packet and the ack.
+
+C) Direct action goal to /move_arm
+1. Send a move action (angles in degrees):
+   ros2 action send_goal /move_arm robot_interfaces/action/MoveArm "{targets: [100.0, -20.0, 30.0, 0.0], bitmask: 31}"
+
+Expected:
+- Serial driver logs the move and writes a binary move packet to the MCU.
+- Use `python3 package_receive.py` to verify the bytes written and checksums (if any).
+
+D) Send a raw binary packet from host to MCU
+1. Generate a packet with `package_gen.py` and send using the printed `echo | xxd -r -p` command (adjust the device path):
+   python3 package_gen.py
+   # follow the printed echo command, e.g.:
+   # echo 'HEXSTRING' | xxd -r -p > /dev/ttyACM0
+
+Monitoring serial traffic:
+- Run `python3 package_receive.py` to see raw bytes and responses.
+- Or use a serial terminal: `picocom -b 115200 /dev/ttyACM0 --echo`
+
+Troubleshooting:
+- No serial writes: check device path and permissions (`ls -l /dev/ttyACM*`). Add user to `dialout` or use sudo for quick tests.
+- Planner ignores vision message: confirm the message format matches what the Vision node expects (stringified JSON is used in many scripts here).
+- Service/action calls fail/hang: check node info/logs:
+  ros2 node info /serial_driver
+  ros2 node info /planner_node
+- Use `ros2 topic echo /vision/detections` and `ros2 topic echo /joint_states` to verify flow.
+
+Minimal verification checklist:
+- [ ] `ros2 node list` shows `vision_node`, `planner_node`, `serial_driver` (or equivalent names used in this workspace)
+- [ ] Publishing a fake vision message triggers planner behavior and an action attempt
+- [ ] `ros2 service call /grip_control ...` produces a serial packet and MCU ack
+- [ ] `ros2 action send_goal /move_arm ...` triggers serial packet send and driver logs
+
+Example quick test script (optional):
+- Save as `test_end_to_end.sh` (adjust topics and ports as needed):
+  #!/usr/bin/env bash
+  ros2 topic pub --once /vision/detections std_msgs/msg/String "data: '[{\"name\": \"fake_onion\", \"x\": 15.0, \"y\": 10.0, \"z\": 0.0}]'"
+
+  ros2 action send_goal /move_arm robot_interfaces/action/MoveArm "{targets: [100.0, -20.0, 0.0, 0.0], bitmask: 31}"
+  
+  ros2 service call /grip_control robot_interfaces/srv/GripCommand "{command: 'close'}"
+
+Notes:
+- Replace topic/service/action names to match your workspace if they differ.
+- Adjust serial port (e.g., `/dev/ttyACM0` or `/dev/ttyUSB0`) and baud rate to match the MCU.
+
+---
+If you'd like, I can also add a runnable script into the repository or create a short `README` section that runs these commands step-by-step.

@@ -7,7 +7,7 @@ import time
 MAX_ARGUMENTS = 5 
 # Checked against config.h: #define NODE_SENDBYTE '@'
 # ASCII '@' is 0x40. This is what starts the packet FROM the MCU.
-NODE_SENDBYTE = b'@' 
+NODE_SENDBYTE = 0xFE 
 
 PORT = '/dev/ttyACM0'
 BAUD_RATE = 115200

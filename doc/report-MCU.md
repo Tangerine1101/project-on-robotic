@@ -1,5 +1,9 @@
 # MCU Firmware Report
-
+## 0. Workflow
+nodes:
+    vision: detect objects and stream objects data to node planner&kinetic
+    planner&kinetic: subscribe objects coordinate. do inverse kinetic to move the arm to nearest object or grab the object or move it to corresponding zone. then stream the angles from to serial_driver node
+    serial_driver: subscribe topic angles from node planner&kinetic send command via serial to MCU
 ## 1. Overview
 This document details the firmware implementation for the robotic arm project. The firmware is designed to run on an **Arduino Due** (implied by `SerialUSB` and SAM3X8E timer registers) and controls a 4-DOF robotic arm with a gripper. It handles low-level motor control, safety constraints, and communication with a host computer (ROS2 node).
 

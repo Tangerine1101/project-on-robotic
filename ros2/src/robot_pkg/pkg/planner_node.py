@@ -9,6 +9,7 @@ import json
 import numpy as np
 import math
 import time
+import asyncio
 
 # IMPORT INTERFACES
 from robot_interfaces.action import MoveArm
@@ -37,7 +38,7 @@ class PlannerNode(Node):
         self.group = ReentrantCallbackGroup()
 
         # --- PARAMETERS ---
-        self.declare_parameter('pickup_height_mm', 50.0)
+        self.declare_parameter('pickup_height_mm', 10.0)
         self.declare_parameter('zone_onion_x', 150.0)
         self.declare_parameter('zone_onion_y', 150.0)
         self.declare_parameter('zone_onion_z', 100.0)
@@ -81,10 +82,10 @@ class PlannerNode(Node):
         # STATE 0: INITIALIZATION & CALIBRATION
         if self.state == State.INIT:
             self.get_logger().info("⚙️ State: INIT - Requesting Calibration...")
-            if not self._grip_client.wait_for_service(timeout_sec=2.0):
-                self.get_logger().error("Driver Service not available!")
+            if not self._grip_client.service_is_ready():
+                self.get_logger().warn("Driver Service not available!")
                 return
-            
+            self.get_logger().info("Driver service found!")
             # Send Calibrate Command
             req = GripCommand.Request()
             req.command = "calibrate"
@@ -133,7 +134,7 @@ class PlannerNode(Node):
             req = GripCommand.Request()
             req.command = "close"
             await self._grip_client.call_async(req)
-            time.sleep(1.0) # Wait for physical grip
+            await asyncio.sleep(1.0) # Wait for physical grip
             self.state = State.MOVING_DROP
 
         # STATE 4: MOVING TO CLASSIFICATION ZONE
