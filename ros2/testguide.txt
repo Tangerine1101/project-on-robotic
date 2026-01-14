@@ -83,13 +83,14 @@ Minimal verification checklist:
 - [ ] `ros2 action send_goal /move_arm ...` triggers serial packet send and driver logs
 
 Example quick test script (optional):
-- Save as `test_end_to_end.sh` (adjust topics and ports as needed):
-  #!/usr/bin/env bash
-  ros2 topic pub --once /vision/detections std_msgs/msg/String "data: '[{\"name\": \"fake_onion\", \"x\": 15.0, \"y\": 10.0, \"z\": 0.0}]'"
+list camera: v4l2-ctl --list-devices
+  ros2 service call /move_to_position robot_interfaces/srv/MoveTo "{x: 350.0, y: -2.0, z: 0.0}"
 
   ros2 action send_goal /move_arm robot_interfaces/action/MoveArm "{targets: [100.0, -20.0, 0.0, 0.0], bitmask: 31}"
   
-  ros2 service call /grip_control robot_interfaces/srv/GripCommand "{command: 'close'}"
+  ros2 service call /grip_control robot_interfaces/srv/GripCommand "{command: 'calibrate'}"
+
+  ros2 topic pub -1 /vision/detections robot_interfaces/msg/ObjectList "{objects: [{name: 'onion', x: 250.0, y: 0.0, z: 0.0}]}"
 
 Notes:
 - Replace topic/service/action names to match your workspace if they differ.

@@ -71,14 +71,17 @@ void setup() {
 }
 
 void loop() {
-    robot.turnSW_A(digitalRead(refA));
-    robot.turnSW_B(digitalRead(refB));
-    robot.turnSW_C(digitalRead(refC));
+    if (!debugMode){
+        robot.turnSW_A(digitalRead(refA));
+        robot.turnSW_B(digitalRead(refB));
+        robot.turnSW_C(digitalRead(refC));
+    }
     operate();
     if (errorFlag == error_limitation_breaked){
 
     }
     if (ifspin()){
+        robot.moveServo();
         topicPrint();
         if (errorFlag != error_none){
             serialCLI.sendingPackage('E', errorFlag + '0', robot.angles);
@@ -172,12 +175,12 @@ void operate() { // Read Serial and move motors
     }
     else if (cmd == cmd_grip) {
         serialCLI.sendingPackage((char)cmd, 'P', robot.angles);
-        robot.moveto('e', gripClose);
+        robot.moveto('e', gripClose - 90);
         serialCLI.sendingPackage((char)cmd, 'D', robot.angles);
     }
     else if (cmd == cmd_release) {
         serialCLI.sendingPackage((char)cmd, 'P', robot.angles);
-        robot.moveto('e', gripOpen);    
+        robot.moveto('e', gripOpen - 90);    
         serialCLI.sendingPackage((char)cmd, 'D', robot.angles);
     }
     
@@ -224,11 +227,14 @@ char getStateID(){
 //interrupt service routines
 
 void refA_ISR(){
-    robot.turnSW_A(0);
+    if(!debugMode)
+        robot.turnSW_A(0);
 }   
 void refB_ISR(){
-    robot.turnSW_B(0);
+    if(!debugMode)
+        robot.turnSW_B(0);
 }
 void refC_ISR(){
-    robot.turnSW_C(0);
+    if(!debugMode)
+        robot.turnSW_C(0);
 }

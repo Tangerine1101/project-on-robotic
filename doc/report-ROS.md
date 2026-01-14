@@ -7,7 +7,7 @@ The ROS2 software stack is contained within the `pkg` package. It provides a com
 The package follows a standard ROS2 python package structure:
 
 *   **Package Name:** `pkg`
-*   **Dependencies:** `rclpy`, `std_msgs`, `sensor_msgs` (implied), `robot_interfaces`.
+*   **Dependencies:** `rclpy`, `std_msgs`, `sensor_msgs` (implied), `robot_interfaces`, `std_srvs`, `action_msgs`, `python3-numpy`.
 *   **Launch Files:** Located in `launch/`.
 *   **Configuration:** Parameters defined in `config/params.yaml`.
 
@@ -23,16 +23,23 @@ The system consists of three primary nodes, orchestrated by the launch system.
     *   Encodes ROS2 commands into the binary protocol expected by the MCU.
     *   Decodes status packets from the MCU and publishes joint states.
 *   **Parameters:**
-    *   `port`: Serial device path (e.g., `/dev/ttyACM0`).
-    *   `baudrate`: Communication speed (default: 115200).
-    *   `read_frequency`: Rate at which the driver polls the serial port.
+    *   `port`: Serial device path (e.g., `/dev/ttyACM0`). Defines which USB port the Arduino is connected to.
+    *   `baudrate`: Communication speed (default: 115200). Must match the `BAUDRATE` in the MCU's `config.h`.
+    *   `tolerance`: Allowed deviation for joint angles (default: 1.5 degrees). Used to determine if a joint has reached its target.
+    *   `timeout_sec`: Timeout for serial communication (default: 10.0 seconds).
+    *   `read_frequency`: Rate at which the driver polls the serial port for updates (default: 20.0 Hz).
 
 ### 3.2. Vision Node (`vision_node`)
 *   **Entry Point:** `pkg.vision:main`
 *   **Function:** Handles image processing tasks, likely for object detection and localization.
 *   **Parameters:**
-    *   `camera_offset_x`, `camera_offset_y`: Physical offset of the camera relative to the robot base.
-    *   `pixels_per_cm`: Calibration factor for converting pixel coordinates to real-world units.
+    *   `camera_dev`: Video device index (default: 4). Use `v4l2-ctl --list-devices` to find the correct index.
+    *   `x_0_cm`, `y_0_cm`: Physical offset of the camera frame relative to the robot base frame (in cm).
+        *   `x_0_cm`: (+) up, (-) down.
+        *   `y_0_cm`: (+) left, (-) right.
+    *   `pixels_per_cm`: Calibration factor (pixels/cm) used to convert image coordinates to physical coordinates.
+    *   `conf_threshold`: Minimum confidence score (0.0 to 1.0) for the YOLO model to accept a detection (default: 0.7).
+    *   `stream_frequency`: Target frame rate for the video stream (default: 24 Hz).
 
 ### 3.3. Planner Node (`planner_node`)
 *   **Entry Point:** `pkg.planner_node:main`
@@ -41,10 +48,11 @@ The system consists of three primary nodes, orchestrated by the launch system.
     *   Defines classification zones for sorting objects (e.g., "Onion" vs "Garlic").
     *   Manages the pickup and drop-off sequences.
 *   **Parameters:**
-    *   `pickup_height_mm`: Z-height for grasping.
-    *   `zone_onion_{x,y,z}`: Target coordinates for onions.
-    *   `zone_garlic_{x,y,z}`: Target coordinates for garlic.
-    *   `home_angles`: Default resting position.
+    *   `pickup_height_mm`: The Z-height (in mm) at which the gripper should attempt to grasp an object.
+    *   `zone_onion_{x,y}`: Target drop-off coordinates (in mm) for objects classified as "Onion".
+    *   `zone_garlic_{x,y}`: Target drop-off coordinates (in mm) for objects classified as "Garlic".
+    *   `zone_lemon_{x,y}`: Target drop-off coordinates (in mm) for objects classified as "Lemon".
+    *   `zone_radius_mm`: Exclusion radius (default: 70.0 mm). Objects detected within this radius of a zone center are ignored to prevent re-processing already sorted items.
 
 ## 4. Custom Interfaces (`robot_interfaces`)
 
@@ -65,6 +73,26 @@ Used for simple, blocking gripper control.
     *   `string command`: Command type ("open", "close", "calibrate").
 *   **Response:**
     *   `bool success`: Operation status.
+
+### 4.3. Message: `DetectedObject`
+Represents a single object detected by the vision system.
+*   `string name`: The class name of the object (e.g., "onion", "garlic").
+*   `float64 x`: The X coordinate of the object in the robot's frame (mm).
+*   `float64 y`: The Y coordinate of the object in the robot's frame (mm).
+*   `float64 z`: The Z coordinate of the object in the robot's frame (mm).
+
+### 4.4. Message: `ObjectList`
+A container for multiple detected objects, typically published by the vision node.
+*   `DetectedObject[] objects`: An array of `DetectedObject` messages.
+
+### 4.5. Service: `MoveTo`
+A service to request the robot to move its end-effector to a specific Cartesian coordinate.
+*   **Request:**
+    *   `float64 x`: Target X coordinate (mm).
+    *   `float64 y`: Target Y coordinate (mm).
+    *   `float64 z`: Target Z coordinate (mm).
+*   **Response:**
+    *   `bool success`: True if the movement was successful, False otherwise.
 
 ## 5. Launch System
 

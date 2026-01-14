@@ -5,12 +5,12 @@ import struct
 import json
 
 # Packet configuration
-CMD_ID = 'H'
+CMD_ID = 'A'
 BITMASK = 0x1F
-TARGETS = [0.0, 0.0, 0.0, 30.0, 90.0]
+TARGETS = [ -45.0,-47.55742957,42.97526835,45.0, 80]
 
 # Protocol constants
-START_BYTE = 0x23
+START_BYTE = 0xAA
 PKG_FORMAT = '<B c B 5f'
 
 def generate_packet():
@@ -44,7 +44,7 @@ def generate_packet():
     print("HEX STRING (Raw):")
     print(hex_output)
 
-    print(f'echo "{hex_output}" | xxd -r -p > /dev/ttyACM1')
+    print(f'echo "{hex_output}" | xxd -r -p > /dev/ttyACM0')
 
 def generate_ros2_vision_command():
     # Giả lập dữ liệu vật thể (onion hoặc garlic)

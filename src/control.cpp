@@ -39,7 +39,7 @@ void motorControl::init() { // Initialize motor parameters2
 
 bool motorControl::run() {  // motor run callback function. 
     if(calibrating){
-        if (limitSw_A || joint1.distanceToGo() > 0)
+        if (limitSw_A || joint1.distanceToGo() < 0)
             joint1.run();
         if (limitSw_B || joint2.distanceToGo() < 0)
             joint2.run();
@@ -59,7 +59,7 @@ bool motorControl::run() {  // motor run callback function.
         
     }
         if (JOINT1_LIMITATION){ // joint1: must not move counter clockwise when switch A is pressed
-            bool ifMoveCW = joint1.distanceToGo() > 0;
+            bool ifMoveCW = joint1.distanceToGo() < 0;
             if (ifMoveCW || limitSw_A) 
                 joint1.run();
         }
@@ -146,11 +146,11 @@ void motorControl::moveto(char axis, float angle) {
         case 'b': joint2.moveTo(steps); break;
         case 'c': joint3.moveTo(steps); break;
         case 'd': 
-            if (angle <= joint4Max && angle >= joint4Min) joint4.write(angle); 
+            if ((angle + 90.0) <= joint4Max && (angle + 90.0) >= joint4Min) joint4_callback = angle +90.0; 
             delay(15); 
             break;
         case 'e': 
-            if (angle <= gripMax && angle >= gripMin) grip.write(angle); 
+            if (((angle + 90.0) <= gripMax) && ((angle + 90.0) >= gripMin)) grip_callback = angle + 90.0; 
             delay(15); 
             break;
         default: errorFlag= error_invalid_axis; break;
@@ -183,7 +183,7 @@ void motorControl::refCalibrate(bool interrupt){
     unsigned long timeout_check = millis();
     joint2.move(angleToSteps(jointsDir[1]*360));
     joint3.move(angleToSteps(jointsDir[2]*360));
-    while ((digitalRead(refB) || digitalRead(refC)) && ComPort.available() ==0 && interrupt && !debugMode){
+    while ((digitalRead(refB) || digitalRead(refC)) && interrupt && !debugMode){
         turnSW_A(digitalRead(refA));
         turnSW_B(digitalRead(refB));
         turnSW_C(digitalRead(refC));
@@ -212,17 +212,17 @@ void motorControl::refCalibrate(bool interrupt){
     joint1.setCurrentPosition(angleToSteps(REF_A));
     joint2.setCurrentPosition(angleToSteps(REF_B));
     joint3.setCurrentPosition(angleToSteps(REF_C));
-    joint4.write(REF_D);
-    grip.write(REF_E);
     
     joint1.moveTo(HOME_A);
     joint2.moveTo(angleToSteps(HOME_B));
     joint3.moveTo(angleToSteps(HOME_C));
     interrupts();
+    joint4_callback = REF_D;
+    grip_callback = REF_E;
 
     //phase 3: move to home position
     timeout_check = millis();
-    while((joint1.distanceToGo() != 0 || joint2.distanceToGo() != 0 || joint3.distanceToGo() != 0) && interrupt){
+    while((joint1.currentPosition() != joint1.targetPosition() || joint2.currentPosition() != joint2.targetPosition() || joint3.currentPosition() != joint3.targetPosition()) && interrupt){
         turnSW_A(digitalRead(refA));
         turnSW_B(digitalRead(refB));
         turnSW_C(digitalRead(refC));
@@ -263,8 +263,8 @@ void motorControl::get_angles(){
     angles[0] = stepsToAngle(joint1.currentPosition());
     angles[1] = stepsToAngle(joint2.currentPosition());
     angles[2] = stepsToAngle(joint3.currentPosition());
-    angles[3] = servoAngle(joint4);
-    angles[4] = servoAngle(grip);
+    angles[3] = joint4_callback -90;
+    angles[4] = grip_callback -90;
 }
 
 bool motorControl::ifRun(){
@@ -312,5 +312,9 @@ bool motorControl::turnSW_B(bool val){
 }
 bool motorControl::turnSW_C(bool val){
     return limitSw_C = val;
+}
+void motorControl::moveServo(){
+    joint4.write(joint4_callback);
+    grip.write(grip_callback);
 }
 //

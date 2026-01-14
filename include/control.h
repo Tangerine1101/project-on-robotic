@@ -45,6 +45,9 @@ class motorControl {
         bool turnSW_A(bool val);
         bool turnSW_B(bool val);
         bool turnSW_C(bool val);
+        float grip_callback = REF_E;
+        float joint4_callback = REF_D;
+        void moveServo();
     private:
         // Helper to convert degrees to steps
         volatile bool avoidCollision(char axis);

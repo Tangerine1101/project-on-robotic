@@ -3,20 +3,15 @@
 <package format="3">
   <name>robot_interfaces</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>Common Interfaces for Robot Arm</description>
   <maintainer email="lazyshiji@gmail.com">root</maintainer>
   <license>TODO: License declaration</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <test_depend>ament_lint_auto</test_depend>
-  <test_depend>ament_lint_common</test_depend>
-
-  <buildtool_depend>ament_cmake</buildtool_depend>
-
   <build_depend>rosidl_default_generators</build_depend>
   <exec_depend>rosidl_default_runtime</exec_depend>
-
+  
   <depend>action_msgs</depend>
 
   <member_of_group>rosidl_interface_packages</member_of_group>

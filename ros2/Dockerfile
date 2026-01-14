@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y \
     python3-pip \
     libgl1-mesa-glx \
     libglib2.0-0 \
+    v4l-utils \
     && rm -rf /var/lib/apt/lists/*
 
 # 2. Xử lý Numpy TRƯỚC TIÊN (Quan trọng nhất)

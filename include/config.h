@@ -2,12 +2,12 @@
 #define CONFIG_H  
 #include <Arduino.h>
 
-inline bool HumanInterface = 1; // 1: human interface, 0: ROS2 interface
+inline bool HumanInterface = 0; // 1: human interface, 0: ROS2 interface
 inline bool debugMode = 0; // 1: enable debug mode, 0: disable debug mode, currently only used in refCalibrate function to disable movement
 
 //system default config
 #define SAMPLE_TIME 1000 //millisecond
-#define TOPIC_FREQ 10 //Hz
+#define TOPIC_FREQ 20 //Hz
 #define CALLBACK_TIME 20 //microsecond
 #define TIMEOUT_LIMIT 10000 //millisecond
 
@@ -18,14 +18,14 @@ inline bool debugMode = 0; // 1: enable debug mode, 0: disable debug mode, curre
 #define maxArguments  5 //maximum arguments
 #define JOINT_SPEEDDOWN 0.5 //speed down factor
 #define INTERFERENCE_OFFSET 5.0 //degree, to avoid interference between joint 2 and joint 3, sum of joint2 and joint3 must < 60 - offset 
-inline const float gripOpen = 90.0;
-inline const float gripClose = 145.0;
+inline const float gripOpen = 100.0;
+inline const float gripClose = 140.0;
 //Serial communicate
 #define BAUDRATE    115200
 #define NODE_STARTBYTE  0xAA 
 #define NODE_SENDBYTE   0xFE 
 //Reference angles
-#define REF_A   -16.0
+#define REF_A   16.0
 #define REF_B   60.0
 #define REF_C   -20.0
 #define REF_D   90.0
@@ -38,8 +38,8 @@ inline const float gripClose = 145.0;
 
 //define how the drivers are connected
 #define COMMON_CATHODE  1
-inline const int jointsDir[3] = {-1,1,-1}; // Define direction for each joint, using in refCalibrate function
-inline const int jointsRevDir[3] = {0,0,0}; // Define reverse direction for each joint
+inline const int jointsDir[3] = {1,1,-1}; // Define direction for each joint, using in refCalibrate function
+inline const int jointsRevDir[3] = {1,0,0}; // Define reverse direction for each joint
 #define ProgramPort SerialUSB
 #define ComPort Serial
 //errors define
@@ -73,16 +73,16 @@ inline const int refVolt = 40; //Reference high signal that plug in driver
 //physical limited of each joint (IN STEP UNIT, NOT DEGREE)
 #define CONST_LROUND(x) (x >= 0) ? (long)(x + 0.5) : (long)(x - 0.5);
 inline constexpr double stepConvert = STEP_PER_REV*GEAR_RATIO*MICRO_STEP/360;
-inline constexpr long joint1Min = CONST_LROUND(REF_A * stepConvert);
-inline constexpr long joint1Max = CONST_LROUND(120.0 * stepConvert);
+inline constexpr long joint1Min = CONST_LROUND( -90 * stepConvert);
+inline constexpr long joint1Max = CONST_LROUND(REF_A * stepConvert);
 inline constexpr long  joint2Min = CONST_LROUND(-80.0 * stepConvert);
 inline constexpr long  joint2Max= CONST_LROUND(REF_B * stepConvert);
 inline constexpr long  joint3Min = CONST_LROUND(REF_C * stepConvert);
-inline constexpr long  joint3Max = CONST_LROUND(50 * stepConvert);
-inline constexpr long  joint4Min = 0;
-inline constexpr long  joint4Max = 180;
-inline constexpr long  gripMin = 90;
-inline constexpr long  gripMax = 145;
+inline constexpr long  joint3Max = CONST_LROUND(80 * stepConvert);
+inline constexpr float  joint4Min = 0;
+inline constexpr float  joint4Max = 180;
+inline const float  gripMin = gripOpen;
+inline const float  gripMax = gripClose;
 
 
 #endif
