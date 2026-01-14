@@ -105,14 +105,15 @@ def IK_fulls_1(T):
     mask_q1 = (Q[:, 0] > -90) & (Q[:, 0] < 16)
     
     # 2. -80 < q2 < 0 (Shoulder limitation)
-    mask_q2 = (Q[:, 1] > -80) & (Q[:, 1] < 0)
+    mask_q2 = (Q[:, 1] > -80) & (Q[:, 1] < 60)
     
     # 3. 90 > q3 > 0 (Elbow limitation)
     mask_q3 = (Q[:, 2] > 0) & (Q[:, 2] < 90)
     
     # 4. -90 < q4 < 90 (Servo Limitation - NEW)
-    mask_q4 = (Q[:, 3] > -90) & (Q[:, 3] < 90)
-
+    temp = Q[:, 3] + 90
+    Q[:, 3] = temp
+    mask_q4 = (Q[:, 3] > 0) & (Q[:, 3] < 180) 
     # 5. Collision Check: q2 + q3 < 60
     mask_col = (Q[:, 1] + Q[:, 2]) < 60
 

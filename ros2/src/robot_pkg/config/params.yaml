@@ -22,21 +22,14 @@ vision_node:
 
 planner_node:
   ros__parameters:
-planner_node:
-  ros__parameters:
     pickup_height_mm: 0.0
     
-    # Classification Zones
+    # classify Zone (Matched to planner_node.py declarations)
     zone_onion_x: 320.0
     zone_onion_y: -250.0
-    
     zone_garlic_x: 180.0
     zone_garlic_y: -250.0
-    
     zone_lemon_x: 250.0
     zone_lemon_y: -250.0
-
-    # REPLACED Rectangles with Radius
-    zone_radius_mm: 70.0  # Objects within 70cm of zone center are IGNORED
     
     

@@ -48,11 +48,11 @@ class PlannerNode(Node):
         self.declare_parameter('home_angles', [0.0, 40.0, -10.0, 0.0])
         
         # Zones
-        self.declare_parameter('zone_onion_x', 320.0)
+        self.declare_parameter('zone_onion_x', 250.0)
         self.declare_parameter('zone_onion_y', -250.0)
-        self.declare_parameter('zone_garlic_x', 180.0)
+        self.declare_parameter('zone_garlic_x', 300.0)
         self.declare_parameter('zone_garlic_y', -250.0)
-        self.declare_parameter('zone_lemon_x', 250.0)
+        self.declare_parameter('zone_lemon_x', 200.0)
         self.declare_parameter('zone_lemon_y', -250.0)
 
         # Exclusion Radius (Simpler than Rectangles)
