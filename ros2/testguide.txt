@@ -84,7 +84,7 @@ Minimal verification checklist:
 
 Example quick test script (optional):
 list camera: v4l2-ctl --list-devices
-  ros2 service call /move_to_position robot_interfaces/srv/MoveTo "{x: 350.0, y: -2.0, z: 0.0}"
+  ros2 service call /move_to_position robot_interfaces/srv/MoveTo "{x: 114.0, y: -280.0, z: 0.0}"
 
   ros2 action send_goal /move_arm robot_interfaces/action/MoveArm "{targets: [100.0, -20.0, 0.0, 0.0], bitmask: 31}"
   

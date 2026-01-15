@@ -81,7 +81,7 @@ void loop() {
 
     }
     if (ifspin()){
-        robot.moveServo();
+        //robot.moveServo();
         topicPrint();
         if (errorFlag != error_none){
             serialCLI.sendingPackage('E', errorFlag + '0', robot.angles);
@@ -175,12 +175,12 @@ void operate() { // Read Serial and move motors
     }
     else if (cmd == cmd_grip) {
         serialCLI.sendingPackage((char)cmd, 'P', robot.angles);
-        robot.moveto('e', gripClose - 90);
+        robot.moveto('e', gripClose);
         serialCLI.sendingPackage((char)cmd, 'D', robot.angles);
     }
     else if (cmd == cmd_release) {
         serialCLI.sendingPackage((char)cmd, 'P', robot.angles);
-        robot.moveto('e', gripOpen - 90);    
+        robot.moveto('e', gripOpen);    
         serialCLI.sendingPackage((char)cmd, 'D', robot.angles);
     }
     

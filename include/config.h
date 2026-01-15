@@ -79,8 +79,8 @@ inline constexpr long  joint2Min = CONST_LROUND(-80.0 * stepConvert);
 inline constexpr long  joint2Max= CONST_LROUND(REF_B * stepConvert);
 inline constexpr long  joint3Min = CONST_LROUND(REF_C * stepConvert);
 inline constexpr long  joint3Max = CONST_LROUND(80 * stepConvert);
-inline constexpr float  joint4Min = 0;
-inline constexpr float  joint4Max = 180;
+inline constexpr float  joint4Min = -0.001;
+inline constexpr float  joint4Max = 180.001;
 inline const float  gripMin = gripOpen;
 inline const float  gripMax = gripClose;
 

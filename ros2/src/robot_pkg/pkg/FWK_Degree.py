@@ -13,7 +13,7 @@ def IK_fulls_1(T):
     #     CALIBRATION OFFSETS
     # ============================
     # Adjust these to shift the "World (0,0,0)" relative to the Robot Base
-    OFFSET_X = 20.0   # mm
+    OFFSET_X = 0.0   # mm
     OFFSET_Y = 0.0   # mm
     OFFSET_Z = 28.0   # mm
 

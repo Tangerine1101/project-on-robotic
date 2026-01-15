@@ -43,7 +43,7 @@ class VisionNode(Node):
             self.cap = cv2.VideoCapture(cam_id)
             
         if not self.cap.isOpened():
-            self.get_logger().fatal(f"❌ Camera {cam_id} not found!")
+            self.get_logger().fatal(f"Camera {cam_id} not found!")
             sys.exit(1)
 
         # --- PUBLISHER & TIMER ---
@@ -56,7 +56,7 @@ class VisionNode(Node):
         
         self.timer = self.create_timer(period, self.timer_callback)
         
-        self.get_logger().info(f"👁️ Vision Node Online on /dev/video{cam_id} @ {freq}Hz")
+        self.get_logger().info(f"Vision Node Online on /dev/video{cam_id} @ {freq}Hz")
 
     def timer_callback(self):
         ret, frame = self.cap.read()

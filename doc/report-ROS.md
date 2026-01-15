@@ -104,3 +104,6 @@ This is the main entry point for starting the robot. It performs the following:
 
 ### `novision.launch.py`
 (Inferred) Likely a variant of the run launch file that excludes the `vision_node` for testing mechanical control without camera input.
+
+[driver-1] [ERROR] [1768369246.044121387] [serial_driver]: ⏰ Timed Out. Current: [0.0, 39.990875244140625, -9.985401153564453, 100.0, 100.0]
+[driver-1] [INFO] [1768369246.050316013] [serial_driver]: ✅ Ack Received: done

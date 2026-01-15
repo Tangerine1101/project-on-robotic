@@ -146,11 +146,11 @@ void motorControl::moveto(char axis, float angle) {
         case 'b': joint2.moveTo(steps); break;
         case 'c': joint3.moveTo(steps); break;
         case 'd': 
-            if ((angle + 90.0) <= joint4Max && (angle + 90.0) >= joint4Min) joint4_callback = angle +90.0; 
+            if (angle <= joint4Max && angle>= joint4Min) joint4.write(angle); 
             delay(15); 
             break;
         case 'e': 
-            if (((angle + 90.0) <= gripMax) && ((angle + 90.0) >= gripMin)) grip_callback = angle + 90.0; 
+            if ((angle <= gripMax) && (angle >= gripMin)) grip.write(angle); 
             delay(15); 
             break;
         default: errorFlag= error_invalid_axis; break;
@@ -217,8 +217,8 @@ void motorControl::refCalibrate(bool interrupt){
     joint2.moveTo(angleToSteps(HOME_B));
     joint3.moveTo(angleToSteps(HOME_C));
     interrupts();
-    joint4_callback = REF_D;
-    grip_callback = REF_E;
+    joint4.write(HOME_D);
+    grip.write(HOME_E);
 
     //phase 3: move to home position
     timeout_check = millis();
@@ -235,6 +235,7 @@ void motorControl::refCalibrate(bool interrupt){
         
     calibrating = false;
     delay(1000);
+    ComPort.flush();
     if(HumanInterface)
         ComPort.println("[DONE] Calibration done.");
     else 
@@ -263,8 +264,8 @@ void motorControl::get_angles(){
     angles[0] = stepsToAngle(joint1.currentPosition());
     angles[1] = stepsToAngle(joint2.currentPosition());
     angles[2] = stepsToAngle(joint3.currentPosition());
-    angles[3] = joint4_callback -90;
-    angles[4] = grip_callback -90;
+    angles[3] = joint4_callback;
+    angles[4] = grip_callback;
 }
 
 bool motorControl::ifRun(){

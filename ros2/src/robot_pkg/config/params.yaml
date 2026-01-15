@@ -3,7 +3,7 @@ serial_driver:
     port: "/dev/ttyACM0"
     baudrate: 115200
     tolerance: 1.5
-    timeout_sec: 10.0
+    timeout_sec: 15.0
     read_frequency: 20.0
 
 vision_node:
@@ -25,11 +25,11 @@ planner_node:
     pickup_height_mm: 0.0
     
     # classify Zone (Matched to planner_node.py declarations)
-    zone_onion_x: 320.0
-    zone_onion_y: -250.0
-    zone_garlic_x: 180.0
-    zone_garlic_y: -250.0
-    zone_lemon_x: 250.0
-    zone_lemon_y: -250.0
+    zone_onion_x: 114.0
+    zone_onion_y: -280.0
+    zone_garlic_x: 246.0
+    zone_garlic_y: -280.0
+    zone_lemon_x: 175.0
+    zone_lemon_y: -280.0
     
     

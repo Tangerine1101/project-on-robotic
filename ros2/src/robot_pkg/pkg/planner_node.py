@@ -5,7 +5,7 @@ from rclpy.action import ActionClient
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 import math
-import time
+import time  # <--- Using standard time module
 import numpy as np
 
 # --- IMPORTS ---
@@ -42,22 +42,25 @@ class PlannerNode(Node):
 
         # --- PARAMETERS ---
         self.declare_parameter('wait_vision', True)
-        self.declare_parameter('manual_mode', False)
+        self.declare_parameter('manual_mode', 0)
         
         self.declare_parameter('pickup_height_mm', 0.0)
         self.declare_parameter('home_angles', [0.0, 40.0, -10.0, 0.0])
         
         # Zones
-        self.declare_parameter('zone_onion_x', 250.0)
-        self.declare_parameter('zone_onion_y', -250.0)
-        self.declare_parameter('zone_garlic_x', 300.0)
-        self.declare_parameter('zone_garlic_y', -250.0)
-        self.declare_parameter('zone_lemon_x', 200.0)
-        self.declare_parameter('zone_lemon_y', -250.0)
+        self.declare_parameter('zone_onion_x', 114.0)
+        self.declare_parameter('zone_onion_y', -280.0)
 
-        # Exclusion Radius (Simpler than Rectangles)
-        self.declare_parameter('zone_radius_mm', 150.0) # 15cm Radius
+        self.declare_parameter('zone_garlic_x', 246.0)
+        self.declare_parameter('zone_garlic_y', -280.0)
 
+        self.declare_parameter('zone_lemon_x', 175.0)
+        self.declare_parameter('zone_lemon_y', -280.0)
+
+        # Exclusion Zone
+        self.declare_parameter('zone_radius_mm', 150.0)
+        self.declare_parameter('sleep_time', 1.0)
+        self.sleep_zzz = self.get_parameter('sleep_time').value
         # --- CLIENTS ---
         self._action_client = ActionClient(self, MoveArm, 'move_arm', callback_group=self.group)
         self._grip_client = self.create_client(GripCommand, 'grip_control', callback_group=self.group)
@@ -81,6 +84,7 @@ class PlannerNode(Node):
         self.target_angles = []
         self.busy = False 
 
+        # Timer loop 
         self.timer = self.create_timer(0.5, self.brain_loop, callback_group=self.group)
         
         mode_str = "MANUAL" if manual_flag else "AUTO"
@@ -131,7 +135,13 @@ class PlannerNode(Node):
                     req = GripCommand.Request()
                     req.command = "calibrate"
                     self.get_logger().info("🛠️ Calibrating...")
+                    
+                    # CALL SERVICE & WAIT
                     result = await self._grip_client.call_async(req)
+                    
+                    # THROTTLE (Blocking Sleep is safe in MultiThreadedExecutor)
+                    time.sleep(self.sleep_zzz)  
+                    
                     if result.success:
                         self.get_logger().info("✅ Calibrated.")
                         self.state = State.MOVING_HOME
@@ -143,7 +153,10 @@ class PlannerNode(Node):
             elif self.state == State.MOVING_HOME:
                 self.get_logger().info("🏠 Moving Home...")
                 home_angles = self.get_parameter('home_angles').value
+                
+                # send_arm_goal has the sleep inside it
                 success = await self.send_arm_goal(home_angles)
+                
                 if success:
                     self.state = State.PRE_TASK_OPEN
                 else:
@@ -151,9 +164,13 @@ class PlannerNode(Node):
 
             # 4. PRE-TASK OPEN
             elif self.state == State.PRE_TASK_OPEN:
+                self.get_logger().info("👐 Ensuring Open...")
                 req = GripCommand.Request()
                 req.command = "open"
+                
                 await self._grip_client.call_async(req)
+                time.sleep(self.sleep_zzz)  # THROTTLE
+                
                 self.latest_objects = [] 
                 self.state = State.SCANNING
 
@@ -164,33 +181,22 @@ class PlannerNode(Node):
                 else:
                     valid_names = ['onion', 'garlic', 'lemon']
                     candidates = []
-                    
-                    # Debug Info
-                    self.get_logger().info(f"👀 Analyzing {len(self.latest_objects)} objects...")
-
                     for obj in self.latest_objects:
                         if obj.name.lower() not in valid_names: continue
-                        
                         obj_x_mm = obj.x * 10.0
                         obj_y_mm = obj.y * 10.0
                         
-                        # Use Radius Check
-                        in_zone, dist, nearest_zone = self.check_zone_radius(obj_x_mm, obj_y_mm)
-                        
+                        in_zone, dist, zone_name = self.check_zone_radius(obj_x_mm, obj_y_mm)
                         if in_zone:
-                            self.get_logger().info(f"🚫 Ignoring {obj.name} at ({obj_x_mm:.0f}, {obj_y_mm:.0f}). Inside {nearest_zone} (Dist: {dist:.0f}mm)")
+                            self.get_logger().info(f"🚫 Ignoring {obj.name} in {zone_name} ({dist:.0f}mm)")
                             continue
-                        else:
-                            # Log why it's accepted
-                            self.get_logger().info(f"✅ Accepting {obj.name} at ({obj_x_mm:.0f}, {obj_y_mm:.0f}). Dist to {nearest_zone}: {dist:.0f}mm")
-
                         candidates.append(obj)
                     
                     if not candidates:
-                        self.get_logger().info("👀 All objects filtered.", throttle_duration_sec=2)
+                        self.get_logger().info("👀 Objects filtered out.", throttle_duration_sec=2)
                     else:
                         closest_obj = min(candidates, key=lambda o: math.hypot(o.x, o.y))
-                        self.get_logger().info(f"🎯 Target Acquired: {closest_obj.name}")
+                        self.get_logger().info(f"🎯 Target: {closest_obj.name}")
                         pickup_z = self.get_parameter('pickup_height_mm').value
                         angles = self.solve_ik(closest_obj.x * 10, closest_obj.y * 10, pickup_z)
                         if angles is not None:
@@ -212,7 +218,10 @@ class PlannerNode(Node):
                 self.get_logger().info("✊ Gripping...")
                 req = GripCommand.Request()
                 req.command = "close"
+                
                 await self._grip_client.call_async(req)
+                time.sleep(self.sleep_zzz)  # THROTTLE
+                
                 self.state = State.MOVING_CENTER
 
             # 8. MOVING CENTER
@@ -248,7 +257,10 @@ class PlannerNode(Node):
             elif self.state == State.RELEASING:
                 req = GripCommand.Request()
                 req.command = "open"
+                
                 await self._grip_client.call_async(req)
+                time.sleep(self.sleep_zzz)  # THROTTLE
+                
                 self.get_logger().info("✅ Done.")
                 self.state = State.MOVING_HOME
 
@@ -257,38 +269,36 @@ class PlannerNode(Node):
 
     # --- HELPERS ---
     def check_zone_radius(self, x_mm, y_mm):
-        """Returns (in_zone, distance_to_center, zone_name)"""
         zones = {
-            'OnionZone': (self.get_parameter('zone_onion_x').value, self.get_parameter('zone_onion_y').value),
-            'GarlicZone': (self.get_parameter('zone_garlic_x').value, self.get_parameter('zone_garlic_y').value),
-            'LemonZone': (self.get_parameter('zone_lemon_x').value, self.get_parameter('zone_lemon_y').value)
+            'Onion': (self.get_parameter('zone_onion_x').value, self.get_parameter('zone_onion_y').value),
+            'Garlic': (self.get_parameter('zone_garlic_x').value, self.get_parameter('zone_garlic_y').value),
+            'Lemon': (self.get_parameter('zone_lemon_x').value, self.get_parameter('zone_lemon_y').value)
         }
-        radius = self.get_parameter('zone_radius_mm').value
-        
-        nearest_dist = float('inf')
-        nearest_name = "None"
-        
+        r = self.get_parameter('zone_radius_mm').value
         for name, (zx, zy) in zones.items():
             dist = math.hypot(x_mm - zx, y_mm - zy)
-            if dist < nearest_dist:
-                nearest_dist = dist
-                nearest_name = name
-            
-            if dist <= radius:
-                return True, dist, name
-        
-        return False, nearest_dist, nearest_name
+            if dist <= r: return True, dist, name
+        return False, 0.0, ""
 
     async def send_arm_goal(self, angles):
+        """Sends move command and WAITS 3 SECONDS after completion."""
         goal = MoveArm.Goal()
         raw = [float(a) for a in angles]
-        if len(raw) > 3: raw[3] += 90.0
+        if len(raw) > 3: raw[3] += 90.0 # Servo fix
         goal.targets = raw
         goal.bitmask = 0x1F
+
         self._action_client.wait_for_server()
         goal_handle = await self._action_client.send_goal_async(goal)
+        
         if not goal_handle.accepted: return False
+        
         res = await goal_handle.get_result_async()
+        
+        if res.result.success:
+            # THROTTLE (Blocking Sleep)
+            time.sleep(self.sleep_zzz)  
+            
         return res.result.success
 
     def solve_ik(self, x, y, z):
@@ -299,8 +309,8 @@ class PlannerNode(Node):
             [0.0, 0.0, 0.0, 1.0]
         ])
         try:
-            solutions = IK_fulls_1(T)
-            if len(solutions) > 0: return solutions[0] 
+            sol = IK_fulls_1(T)
+            if len(sol) > 0: return sol[0] 
         except: pass
         return None
 
