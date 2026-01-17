@@ -5,9 +5,11 @@
 inline bool HumanInterface = 1; // 1: human interface, 0: ROS2 interface
 inline bool debugMode = 0; // 1: enable debug mode, 0: disable debug mode, currently only used in refCalibrate function to disable movement
 //test params, use commands 'testA' or 'testB' or 'testC' to move to location A,B,C
-float spotA[5]= {0, 0, 0, 0, gripClose};
-float spotB[5]= {0, 0, 0, 0, gripClose};
-float spotC[5]= {0, 0, 0, 0, gripClose};
+
+extern const float gripOpen, gripClose, stepConvert;
+inline const float spotA[5]= {0, 40, 10, 0, gripClose};
+inline const float spotB[5]= {0, 20, 10, 0, gripClose};
+inline const float spotC[5]= {0, 30, 0, 0, gripClose};
 //system default config
 #define SAMPLE_TIME 1000 //millisecond
 #define TOPIC_FREQ 20 //Hz
@@ -72,11 +74,10 @@ inline const int servo5 = 29;//servo 5 - the grip
 inline const int refA = 30; //reference switch for joint 1
 inline const int refB = 32; //reference switch for joint 2
 inline const int refC = 34; //reference switch for joint 3
-inline const int refVolt = 40; //Reference high signal that plug in driver
 
 //physical limited of each joint (IN STEP UNIT, NOT DEGREE)
 #define CONST_LROUND(x) (x >= 0) ? (long)(x + 0.5) : (long)(x - 0.5);
-inline constexpr double stepConvert = STEP_PER_REV*GEAR_RATIO*MICRO_STEP/360;
+inline constexpr float stepConvert = STEP_PER_REV*GEAR_RATIO*MICRO_STEP/360;
 inline constexpr long joint1Min = CONST_LROUND( -90 * stepConvert);
 inline constexpr long joint1Max = CONST_LROUND(REF_A * stepConvert);
 inline constexpr long  joint2Min = CONST_LROUND(-80.0 * stepConvert);

@@ -1,6 +1,0 @@
-float64[] targets
-int8 bitmask
----
-bool success
----
-float64[] current_values

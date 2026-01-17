@@ -90,9 +90,9 @@ void loop() {
             robot.jointBrake('c');
 
             if (HumanInterface){
-            ComPort.print(robot.safety_check('a'));
-            ComPort.print(robot.safety_check('b'));
-            ComPort.println(robot.safety_check('c'));
+            //ComPort.print(robot.safety_check('a'));
+            //ComPort.print(robot.safety_check('b'));
+            //ComPort.println(robot.safety_check('c'));
             }
             errorFlag = error_none;
         }
@@ -219,10 +219,10 @@ bool ifspin(){
 void topicPrint(){
     robot.get_angles();
     serialCLI.sendingPackage((char)currentCommand, getStateID(), robot.angles);
-    ComPort.print(robot.turnSW_A(digitalRead(refA)));
-    ComPort.print(robot.turnSW_B(digitalRead(refB)));;
-    ComPort.println(robot.turnSW_C(digitalRead(refC)));
-    robot.debug();
+    //ComPort.print(robot.turnSW_A(digitalRead(refA)));
+    //ComPort.print(robot.turnSW_B(digitalRead(refB)));;
+    //ComPort.println(robot.turnSW_C(digitalRead(refC)));
+    //robot.debug();
 }
  
 char getCommandID(){
