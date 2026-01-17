@@ -2,13 +2,16 @@
 #define CONFIG_H  
 #include <Arduino.h>
 
-inline bool HumanInterface = 0; // 1: human interface, 0: ROS2 interface
+inline bool HumanInterface = 1; // 1: human interface, 0: ROS2 interface
 inline bool debugMode = 0; // 1: enable debug mode, 0: disable debug mode, currently only used in refCalibrate function to disable movement
-
+//test params, use commands 'testA' or 'testB' or 'testC' to move to location A,B,C
+float spotA[5]= {0, 0, 0, 0, gripClose};
+float spotB[5]= {0, 0, 0, 0, gripClose};
+float spotC[5]= {0, 0, 0, 0, gripClose};
 //system default config
 #define SAMPLE_TIME 1000 //millisecond
 #define TOPIC_FREQ 20 //Hz
-#define CALLBACK_TIME 20 //microsecond
+#define CALLBACK_TIME 20 //microsecond, shouldn't be too small, otherwise the program will be stuck in the callback function
 #define TIMEOUT_LIMIT 10000 //millisecond
 
 //robot physical config
@@ -40,6 +43,7 @@ inline const float gripClose = 140.0;
 #define COMMON_CATHODE  1
 inline const int jointsDir[3] = {1,1,-1}; // Define direction for each joint, using in refCalibrate function
 inline const int jointsRevDir[3] = {1,0,0}; // Define reverse direction for each joint
+//define serial port, the program mainly use ComPort which in fact is programming port(Serial) on board, change it to serialUSB(native usb port) for faster Serial communication 
 #define ProgramPort SerialUSB
 #define ComPort Serial
 //errors define
@@ -52,7 +56,7 @@ typedef enum{
 inline errors errorFlag = error_none; 
 //stepper's parameters
 inline const int stepsPerRevolution = 200; // Typical steps for a 1.8 degree motor in full step
-inline const float maxSpeed = 2*13.7*200*8;       // Steps per second 
+inline const float maxSpeed = 2*13.7*200*8;       // Steps per second, limit of this parameters is unclear due to the heaviness of the program, reduce callback time might improve this
 inline const float acceleration = 1200;   // Steps per second squared 
 
 //config tb6600

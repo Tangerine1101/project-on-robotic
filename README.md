@@ -11,8 +11,8 @@ copy all files from "src" and "include" folders into a folder name "main", renam
 |cmd_moveto          |A                       |moveto [option1] angle [option2] angle ... [options5] angle | move joints that list as "option" to the **Absolute** angle
 |cmd_position        |P                       |position| report joints angle(only available in humanInterface mode) 
 |cmd_currentPos      |C                       |currentPos [option1] angle [option2] angle ... [options5] angle| set joints current angle to the desired angle 
-|cmd_grip            |G| |close grip                   
-|cmd_release         |R| |open grip         
+|cmd_grip            |G|grip |close grip                   
+|cmd_release         |R|release |open grip         
 |cmd_moveref         |F                       |moveref | calibrate by move until the arm reach limit switches(reference point)
 |cmd_humanInterface  |H                       |humanInterface| turn on humanInterface mode
 |cmd_ros2Interface   |S                       |ros2Interface| turn on ros2Interface mode
@@ -22,6 +22,9 @@ copy all files from "src" and "include" folders into a folder name "main", renam
 |error_invalid_axis|1||the motors or joints that called in the command are invalid
 |error_limitation_breaked|2|| the robot arm's limitation breaked
 |error_timeout  |3|| task timeout
+|cmd_testA            |1                       |testA| test command
+cmd_testB            |2                       |testB| test command
+cmd_testC            |3                       |testC| test command
 
 Difference between humanInterface and ros2Interface: 
 - ros2Interface is a interface that tweaked for M2M(machine to machine) communication.

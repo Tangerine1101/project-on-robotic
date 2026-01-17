@@ -52,6 +52,15 @@ commands serialCom::commandHandle(){
                 HumanInterface =0;
                 return cmd_ros2Interface;
             }
+            else if (Command.startsWith("testA")){
+                return cmd_testA;
+            }
+            else if (Command.startsWith("testB")){
+                return cmd_testB;
+            }
+            else if (Command.startsWith("testC")){
+                return cmd_testC;
+            }
             else {
                 return cmd_invalid;
             }

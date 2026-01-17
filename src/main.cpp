@@ -12,7 +12,6 @@ void topicPrint();
 char getStateID();
 char getCommandID();
 //interrupt service routines
-void runCallback();
 void refA_ISR();
 void refB_ISR();    
 void refC_ISR();
@@ -54,8 +53,6 @@ extern "C" {
 void setup() {
     ComPort.begin(115200); // Make sure this matches your monitor
     robot.init();
-    pinMode(refVolt, OUTPUT);
-    digitalWrite(refVolt, 1);
     //setup interrupt/timer
     setupTimer6(CALLBACK_TIME); //setup timer with CALLBACK_TIME microsecond interval
     pinMode(refA, INPUT_PULLUP);
@@ -65,7 +62,7 @@ void setup() {
     attachInterrupt(refB, refB_ISR, FALLING);
     attachInterrupt(refC, refC_ISR, FALLING);
     if (HumanInterface) {
-        ComPort.println("System Initialized.V1.1");
+        ComPort.println("System Initialized");
     }
     preMillis = millis();
 }
@@ -114,7 +111,7 @@ void operate() { // Read Serial and move motors
     }
 
     if (cmd != commands::cmd_none || getStateID() == 'D' || currentCommand == commands::cmd_moveref || currentCommand == commands::cmd_abort)
-    currentCommand = cmd;
+        currentCommand = cmd;
     // 2. Process Command
     robot.posWriting = 1;
     if (cmd == cmd_move) { // Relative move command
@@ -183,7 +180,30 @@ void operate() { // Read Serial and move motors
         robot.moveto('e', gripOpen);    
         serialCLI.sendingPackage((char)cmd, 'D', robot.angles);
     }
-    
+    else if (cmd == cmd_testA) {
+        robot.moveto('a', spotA[0]);
+        robot.moveto('b', spotA[1]);
+        robot.moveto('c', spotA[2]);
+        robot.moveto('d', spotA[3]);
+        robot.moveto('e', spotA[4]);
+    }
+    else if (cmd == cmd_testB) {
+        robot.moveto('a', spotB[0]);
+        robot.moveto('b', spotB[1]);
+        robot.moveto('c', spotB[2]);
+        robot.moveto('d', spotB[3]);
+        robot.moveto('e', spotB[4]);
+    }
+    else if (cmd == cmd_testC) {
+        robot.moveto('a', spotC[0]);
+        robot.moveto('b', spotC[1]);
+        robot.moveto('c', spotC[2]);
+        robot.moveto('d', spotC[3]);
+        robot.moveto('e', spotC[4]);
+    }
+    else if (cmd == cmd_abort){
+
+    }
     robot.posWriting = 0;
     serialCLI.clearArgument();
 }

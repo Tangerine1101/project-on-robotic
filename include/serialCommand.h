@@ -46,7 +46,11 @@ typedef enum {
     cmd_humanInterface = 'H', // For human convinience
     cmd_ros2Interface = 'S', // if subscribed, stream joints and grip angles constantly
     cmd_abort = 'X', // Emergency stop
-    cmd_invalid = '&'            
+    cmd_invalid = '&',
+    cmd_testA = '1',
+    cmd_testB = '2',
+    cmd_testC = '3'
+    // Add more commands as needed          
 } commands;
 
 class serialCom {
