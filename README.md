@@ -67,3 +67,13 @@ struct __attribute__((packed)) serialPackage //remote command package
 ```
 - therefor, ros2 driver node(PC) will send a package to MCU as string of [{start byte}, {commandID}, {bitmask}, {array of angles}, {checksum byte}]
 
+# Test guide
+## On MCU human interface mode, 3 points test for tolerance:
+### In ros2/src/robot_pkg/pkg/FWK_check.py:
+- input desire test location and run the script to get angles for each joint
+- repeat to get 3 points A B C 
+  
+### In include/config.h:
+- set the angles of arrays spotA[], spotB[] ,spotC[] to the corresponding angles get from FWK_check.py
+- upload the code to MCU
+- run command "testA" "testB" "testC" to test the tolerance of the robot in Serial monitor
