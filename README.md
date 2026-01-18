@@ -1,9 +1,20 @@
 
-# upload code
-This project originally write on platformIO, if you use arduino IDE:\
-copy all files from "src" and "include" folders into a folder name "main", rename main.cpp to main.ino and open it with arduino ide then compile/upload
+# C++ code
+This project originally written on platformIO, if you use arduino IDE:\
+copy all files from "src" and "include" folders into a folder name "main", rename main.cpp to main.ino and open it with arduino ide then compile/upload \
+note: you need to install AccelStepper library and C++17 compiler
+# ROS2 
+To run ROS:
+- first build image via Dockerfile locate in ros2 folder
+- then run the container and build with `colcon build`
 
+inside ros2 folder:
+- /src: contain all ros2 package and source code
+- /src/robot_interfaces: interfaces of ros2 system
+- /src/robot_pkg: main source code, all nodes programs located here at /src/robot_pkg/pkg
+   
 # list of commands and errors:
+In config.h: change flag humanInterface to 1 to enable base text mode, 0 is for communicate with driver node.
 |Define|CommandID|CLI command (available in human interface mode)| Function
 |------|---------|---------|----
 |cmd_none            |~                       |
@@ -16,15 +27,12 @@ copy all files from "src" and "include" folders into a folder name "main", renam
 |cmd_moveref         |F                       |moveref | calibrate by move until the arm reach limit switches(reference point)
 |cmd_humanInterface  |H                       |humanInterface| turn on humanInterface mode
 |cmd_ros2Interface   |S                       |ros2Interface| turn on ros2Interface mode
-|cmd_abort           |S                       |abort| abort task
+|cmd_abort           |S                       |abort| abort process
 |cmd_invalid         |&
 |error_none         | 0
 |error_invalid_axis|1||the motors or joints that called in the command are invalid
 |error_limitation_breaked|2|| the robot arm's limitation breaked
-|error_timeout  |3|| task timeout
-|cmd_testA            |1                       |testA| test command
-cmd_testB            |2                       |testB| test command
-cmd_testC            |3                       |testC| test command
+|error_timeout  |3|| process timeout
 
 Difference between humanInterface and ros2Interface: 
 - ros2Interface is a interface that tweaked for M2M(machine to machine) communication.
@@ -67,13 +75,3 @@ struct __attribute__((packed)) serialPackage //remote command package
 ```
 - therefor, ros2 driver node(PC) will send a package to MCU as string of [{start byte}, {commandID}, {bitmask}, {array of angles}, {checksum byte}]
 
-# Test guide
-## On MCU human interface mode, 3 points test for tolerance:
-### In ros2/src/robot_pkg/pkg/FWK_check.py:
-- input desire test location and run the script to get angles for each joint
-- repeat to get 3 points A B C 
-  
-### In include/config.h:
-- set the angles of arrays spotA[], spotB[] ,spotC[] to the corresponding angles get from FWK_check.py
-- upload the code to MCU
-- run command "testA" "testB" "testC" to test the tolerance of the robot in Serial monitor
