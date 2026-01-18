@@ -2,7 +2,7 @@
 #define CONFIG_H  
 #include <Arduino.h>
 
-inline bool HumanInterface = 1; // 1: human interface, 0: ROS2 interface
+inline bool HumanInterface = 1;// 1: human interface, 0: ROS2 interface
 inline bool debugMode = 0; // 1: enable debug mode, 0: disable debug mode, currently only used in refCalibrate function to disable movement
 //test params, use commands 'testA' or 'testB' or 'testC' to move to location A,B,C
 
@@ -23,8 +23,8 @@ inline const float spotC[5]= {0, 30, 0, 0, gripClose};
 #define maxArguments  5 //maximum arguments
 #define JOINT_SPEEDDOWN 0.5 //speed down factor
 #define INTERFERENCE_OFFSET 5.0 //degree, to avoid interference between joint 2 and joint 3, sum of joint2 and joint3 must < 60 - offset 
-inline const float gripOpen = 100.0;
-inline const float gripClose = 140.0;
+inline const float gripOpen = 148.0;
+inline const float gripClose = 148.0;
 //Serial communicate
 #define BAUDRATE    115200
 #define NODE_STARTBYTE  0xAA 

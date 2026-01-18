@@ -1,0 +1,38 @@
+serial_driver:
+  ros__parameters:
+    port: "/dev/ttyACM0"
+    baudrate: 115200
+    tolerance: 1.5
+    timeout_sec: 5.0
+    read_frequency: 20.0
+
+vision_node:
+  ros__parameters:
+    # Use 'v4l2-ctl --list-devices' to check.
+    camera_dev: 4
+    
+    # Coordinate Transformation Offsets (Matched to vision.py)
+    x_0_cm: -7.0      # (+) up, (-) down
+    y_0_cm: 5.5       # (+) left, (-) right
+    pixels_per_cm: 10.9
+    
+    # Inference
+    conf_threshold: 0.7
+    stream_frequency: 24
+
+planner_node:
+  ros__parameters:
+    pickup_height_mm: 0.0
+    
+    # classify Zone (Matched to planner_node.py declarations)
+    zone_onion_x: 114.0
+    zone_onion_y: -280.0
+    zone_garlic_x: 246.0
+    zone_garlic_y: -280.0
+    zone_lemon_x: 175.0
+    zone_lemon_y: -280.0
+    sleep_time: 0.5
+
+    zone_radius_mm: 70.0
+    
+    

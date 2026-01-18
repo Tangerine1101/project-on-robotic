@@ -181,6 +181,7 @@ void operate() { // Read Serial and move motors
         serialCLI.sendingPackage((char)cmd, 'D', robot.angles);
     }
     else if (cmd == cmd_testA) {
+        ComPort.println("testA");
         robot.moveto('a', spotA[0]);
         robot.moveto('b', spotA[1]);
         robot.moveto('c', spotA[2]);

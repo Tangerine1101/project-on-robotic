@@ -53,7 +53,10 @@ commands serialCom::commandHandle(){
                 return cmd_ros2Interface;
             }
             else if (Command.startsWith("testA")){
-                return cmd_testA;
+                for(int i=0; i<maxArguments; i++) {
+                    writeArgument(i, spotA[i], indexsList[i]); 
+                }
+                return cmd_moveto;
             }
             else if (Command.startsWith("testB")){
                 return cmd_testB;

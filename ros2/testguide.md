@@ -98,3 +98,34 @@ Notes:
 
 ---
 If you'd like, I can also add a runnable script into the repository or create a short `README` section that runs these commands step-by-step.
+
+
+
+
+
+spot A(175, -280, 75) = echo "moveto -a -53.13 -b -29.80 -c 37.05" > /dev/ttyACM0
+spot B(320, -200, 75) = echo "moveto -a -27.90 -b -43.40 -c 26.26" > /dev/ttyACM0
+spot C(250, -20 , 75) = echo "moveto -a 0.00 -b -17.85 -c 43.84" > /dev/ttyACM0
+
+
+##repeatability test:
+times | spot | tolerance(mm)
+---|---|---|
+1|A|2
+2|B|5
+3|C|2
+4|A|3
+5|B|6
+6|C|4
+7|A|3
+8|B|6
+9|C|3
+10|A|4
+11|B|6
+12|C|5
+13|A|4
+14|B|5
+15|C|3
+16|A|2
+17|B|7
+18|C|3
