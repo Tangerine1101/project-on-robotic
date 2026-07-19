@@ -3,124 +3,6 @@
 serialCom::serialCom() {
 
 }
-// command format: 'command' -tag value -tag value ....
-// ex: move -a 10 -b 20 -c 30
-commands serialCom::commandHandle(){
-    if (ComPort.available() > 0){
-        //read characters from Serial
-        char incomingChar = ComPort.read();
-        incomingCommand += incomingChar;
-        //when hit enter
-        if (incomingChar == '\n' || incomingChar == '\r'){
-            String Command = incomingCommand;
-            incomingCommand = "";
-            Command.trim(); // get rid of spaces and terminators from begining/end
-            Command.toLowerCase();
-            
-            //check for commands
-            if (Command.startsWith("move ")){
-                //detect argument and index
-                readFrom(5, Command);
-                return cmd_move;
-            }   
-            else if (Command.startsWith("moveto ")){
-                readFrom(7, Command);
-                return cmd_moveto;
-            } 
-            else if (Command.startsWith("position")){
-                
-                return cmd_position;
-            }
-            else if (Command.startsWith("currentPos ")){
-                readFrom(10, Command);
-                return cmd_currentPos;
-            }
-            else if (Command.startsWith("grip")){
-                return cmd_grip;
-            }
-            else if (Command.startsWith("release")){
-                return cmd_release;
-            }
-            else if (Command.startsWith("moveref")){
-                return cmd_moveref;
-            }
-            else if (Command.startsWith("humanInterface")){
-                HumanInterface =1;
-                return cmd_humanInterface;
-            }
-            else if (Command.startsWith("ros2Interface")){
-                HumanInterface =0;
-                return cmd_ros2Interface;
-            }
-            else if (Command.startsWith("testA")){
-                for(int i=0; i<maxArguments; i++) {
-                    writeArgument(i, spotA[i], indexsList[i]); 
-                }
-                return cmd_moveto;
-            }
-            else if (Command.startsWith("testB")){
-                return cmd_testB;
-            }
-            else if (Command.startsWith("testC")){
-                return cmd_testC;
-            }
-            else {
-                return cmd_invalid;
-            }
-        }
-    }
-        return cmd_none;
-}
-
-void serialCom::readFrom(unsigned int pos, String Command){
-    unsigned int startIndex = pos;
-    unsigned int i = 0;
-    int spaceIndex = -1;
-    int hyphenIndex = -1;
-
-    // Safety: Clear old arguments first so we don't get ghost values
-    clearArgument(); 
-
-    while(startIndex < Command.length() && i < maxArguments){ 
-        // 1. Find the hyphen
-        hyphenIndex = Command.indexOf('-', startIndex);
-        if(hyphenIndex == -1) break; // No more tags
-
-        // 2. Extract the Tag (e.g., 'a')
-        if(hyphenIndex + 1 < Command.length()){
-             Indexs[i] = Command.charAt(hyphenIndex + 1);
-             privateIndex[i] = Indexs[i]; 
-        }
-
-        // 3. Find the Start of the Number
-        // Start looking 2 chars after hyphen (skip '-' and tag)
-        unsigned int valueStart = hyphenIndex + 2;
-        
-        // CRITICAL FIX: Skip any spaces between the tag and the number!
-        while(valueStart < Command.length() && Command.charAt(valueStart) == ' ') {
-            valueStart++;
-        }
-
-        // 4. Find the End of the Number (Next space)
-        spaceIndex = Command.indexOf(' ', valueStart);
-        
-        // If no space found, the number goes to the end of the string
-        if (spaceIndex == -1) {
-            spaceIndex = Command.length(); 
-        }
-
-        // 5. Extract and Convert
-        // Only try to convert if we actually have characters
-        if (valueStart < spaceIndex) {
-            String valueStr = Command.substring(valueStart, spaceIndex);
-            privateArg[i] = valueStr.toDouble(); 
-        }
-
-        // Prepare for next loop
-        startIndex = spaceIndex; 
-        i++;
-    }
-}
 void serialCom::clearArgument(){
     for (int i = 0; i < maxArguments; i++){
         privateArg[i] = 0.0;
@@ -196,12 +78,8 @@ commands serialCom::readNode(){
                 return cmd_release;
             case commands::cmd_moveref:
                 return cmd_moveref;
-            case commands::cmd_humanInterface:
-                HumanInterface = 1;
-                return cmd_humanInterface;
-            case commands::cmd_ros2Interface:
-                HumanInterface = 0;
-                return cmd_ros2Interface;
+            case commands::cmd_machineInterface:
+                return cmd_machineInterface;
             case commands::cmd_abort:
                 return cmd_abort;
             default:
@@ -235,7 +113,7 @@ void serialCom::packageDebug() { //standalone debug function to print the last r
 
 }
 
-void serialCom::sendingPackage(char processingID, char statusID, float args[maxArguments]){
+void serialCom::sendingPackage(char processingID, char statusID, float args[maxArguments], uint8_t limitSwitches){
     sendPackage pkgToSend;
     pkgToSend.startByte = NODE_SENDBYTE;
     pkgToSend.processingID = processingID;
@@ -243,22 +121,11 @@ void serialCom::sendingPackage(char processingID, char statusID, float args[maxA
     for (int i = 0; i < maxArguments; i++) {
         pkgToSend.Arguments[i] = args[i];
     }
-    // Calculate checksum
+    pkgToSend.limitSwitches = limitSwitches;
+    // Calculate checksum (sizeof - 1 already covers the new limitSwitches byte)
     pkgToSend.checksum = checksumXOR((uint8_t*)&pkgToSend, sizeof(sendPackage) - 1);
     // Send package
-    if (HumanInterface){
-    ComPort.print((char)NODE_SENDBYTE); ComPort.print(",");
-    ComPort.print((char)processingID); ComPort.print(",");
-    ComPort.print((char)statusID); ComPort.print(",");
-    for (int i = 0; i < maxArguments; i++) {
-        ComPort.print(args[i]);
-        if (i < maxArguments - 1) ComPort.print(",");      
-    }
-    ComPort.print(","); ComPort.println(pkgToSend.checksum, HEX);
-    }
-    else {
-        ComPort.write((uint8_t*)&pkgToSend, sizeof(sendPackage));
-    }
+    ComPort.write((uint8_t*)&pkgToSend, sizeof(sendPackage));
 }
 
 void serialCom::writeArgument(int index, float value, char tag){

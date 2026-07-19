@@ -21,6 +21,7 @@ struct __attribute__((packed)) sendPackage //package that will be send to PC
     char processingID; //the processing command character, refer to characters of enum commands(~, M, A, P, C, G, R, F, H, S, X, &, etc)
     char statusID; //status of the command: P(processing), D(done), F(fail)
     float Arguments[maxArguments]; //arguments for each joint
+    uint8_t limitSwitches; //bitmask of the 3 reference switches: bit0=A(joint1), bit1=B(joint2), bit2=C(joint3). Raw polarity: 1=open(not touched), 0=at switch (matches limitSw_* / INPUT_PULLUP active-low).
     uint8_t checksum;
 
     sendPackage(){
@@ -28,8 +29,9 @@ struct __attribute__((packed)) sendPackage //package that will be send to PC
         processingID = '~';
         statusID = '~';
         for (int i = 0; i < maxArguments; i++) {
-            Arguments[i] = 0.0; 
+            Arguments[i] = 0.0;
         }
+        limitSwitches = 0;
         checksum = 0;
     }
 };
@@ -43,35 +45,30 @@ typedef enum {
     cmd_grip = 'G',// Close the grip
     cmd_release = 'R', // Open the grip
     cmd_moveref = 'F', // Calibrate to reference position
-    cmd_humanInterface = 'H', // For human convinience
-    cmd_ros2Interface = 'S', // if subscribed, stream joints and grip angles constantly
+    cmd_machineInterface = 'S', // machine interface: stream joints and grip angles constantly (binary packets)
     cmd_abort = 'X', // Emergency stop
-    cmd_invalid = '&',
-    cmd_testA = 'a',
-    cmd_testB = 'b',
-    cmd_testC = 'c'
-    // Add more commands as needed          
+    cmd_invalid = '&'
+    // Add more commands as needed
 } commands;
+// note: status packets may also carry processingID 'E' = error report
+// (statusID holds the error code as an ASCII digit, see errors enum in config.h)
 
 class serialCom {
     public:
-        
-        commands commandHandle();
+
         commands readNode();
         serialCom();
-        void readFrom(unsigned int pos, String Command);
         void clearArgument();
         void getArgument();
         void writeArgument(int index, float value, char tag);
         float Arguments[maxArguments];
         char Indexs[maxArguments];
         void packageDebug();
-        static void sendingPackage(char processingID, char statusID, float args[maxArguments]);
+        static void sendingPackage(char processingID, char statusID, float args[maxArguments], uint8_t limitSwitches);
         static uint8_t checksumXOR(uint8_t* data, size_t length);
         const char indexsList[maxArguments] = {'a', 'b', 'c', 'd', 'e'};
     private:
         serialPackage pkgDeg;
-        String incomingCommand = "";
         float privateArg[maxArguments];
         char privateIndex[maxArguments];
         bool verifyChecksum(const serialPackage& pkg);

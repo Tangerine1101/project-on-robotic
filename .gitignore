@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.pio/
+.vscode/.browse.c_cpp.db*
+api.txt
+dataset

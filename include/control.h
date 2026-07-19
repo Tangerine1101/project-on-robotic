@@ -27,15 +27,17 @@ class motorControl {
         // The core functions 
         void move(char axis, float angle);   // Relative move
         void moveto(char axis, float angle); // Absolute move
+        // Absolute move of joints 1-3 with time-synchronized profiles: all
+        // commanded axes accelerate/cruise/decelerate so they arrive together.
+        void movetoSync(const bool useAxis[3], const float targetDeg[3]);
+        void resetProfile(); // restore nominal maxSpeed/acceleration on joints 1-3
         void setpos(char axis, float angle);
         void gripPos(int angle);
         void movetoRef();
         void refCalibrate(bool interrupt);
-        void angleTopic();
         bool ifRun();
         // Essential system functions
         bool run(); // Must be called in the main loop constantly!
-        void reportPosition(); // Prints current angles to Serial
         void get_angles();
         float angles[maxArguments]; // Store current angles of joints and grip
         float servoAngle(Servo joint);
@@ -45,12 +47,14 @@ class motorControl {
         bool turnSW_A(bool val);
         bool turnSW_B(bool val);
         bool turnSW_C(bool val);
-        float grip_callback = REF_E;
-        float joint4_callback = REF_D;
-        void moveServo();
+        // Reference/limit switch states as a bitmask for the MCU->PC packet.
+        // bit0=A(joint1), bit1=B(joint2), bit2=C(joint3). Raw polarity: 1=open
+        // (not touched), 0=at switch (matches limitSw_* / INPUT_PULLUP active-low).
+        uint8_t limitSwitchMask() const;
     private:
         // Helper to convert degrees to steps
         volatile bool avoidCollision(char axis);
+        static float profileTime(long distSteps, float V, float A);
         long angleToSteps(float angle);
         float stepsToAngle(long steps);
         bool calibrating;

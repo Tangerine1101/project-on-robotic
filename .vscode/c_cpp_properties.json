@@ -1,0 +1,68 @@
+//
+// !!! WARNING !!! AUTO-GENERATED FILE!
+// PLEASE DO NOT MODIFY IT AND USE "platformio.ini":
+// https://docs.platformio.org/page/projectconf/section_env_build.html#build-flags
+//
+{
+    "configurations": [
+        {
+            "name": "PlatformIO",
+            "includePath": [
+                "/home/tangerine/Share/Global Share/Documents/project-on-robotic/include",
+                "/home/tangerine/Share/Global Share/Documents/project-on-robotic/src",
+                "/home/tangerine/Share/Global Share/Documents/project-on-robotic/.pio/libdeps/due/Servo/src",
+                "/home/tangerine/Share/Global Share/Documents/project-on-robotic/.pio/libdeps/due/AccelStepper/src",
+                "/home/tangerine/.platformio/packages/framework-arduino-sam/cores/arduino",
+                "/home/tangerine/.platformio/packages/framework-arduino-sam/system/libsam",
+                "/home/tangerine/.platformio/packages/framework-arduino-sam/system/CMSIS/CMSIS/Include",
+                "/home/tangerine/.platformio/packages/framework-arduino-sam/system/CMSIS/Device/ATMEL",
+                "/home/tangerine/.platformio/packages/framework-arduino-sam/variants/arduino_due_x",
+                "/home/tangerine/.platformio/packages/framework-arduino-sam/libraries/HID/src",
+                "/home/tangerine/.platformio/packages/framework-arduino-sam/libraries/SPI/src",
+                "/home/tangerine/.platformio/packages/framework-arduino-sam/libraries/Wire/src",
+                ""
+            ],
+            "browse": {
+                "limitSymbolsToIncludedHeaders": true,
+                "path": [
+                    "/home/tangerine/Share/Global Share/Documents/project-on-robotic/include",
+                    "/home/tangerine/Share/Global Share/Documents/project-on-robotic/src",
+                    "/home/tangerine/Share/Global Share/Documents/project-on-robotic/.pio/libdeps/due/Servo/src",
+                    "/home/tangerine/Share/Global Share/Documents/project-on-robotic/.pio/libdeps/due/AccelStepper/src",
+                    "/home/tangerine/.platformio/packages/framework-arduino-sam/cores/arduino",
+                    "/home/tangerine/.platformio/packages/framework-arduino-sam/system/libsam",
+                    "/home/tangerine/.platformio/packages/framework-arduino-sam/system/CMSIS/CMSIS/Include",
+                    "/home/tangerine/.platformio/packages/framework-arduino-sam/system/CMSIS/Device/ATMEL",
+                    "/home/tangerine/.platformio/packages/framework-arduino-sam/variants/arduino_due_x",
+                    "/home/tangerine/.platformio/packages/framework-arduino-sam/libraries/HID/src",
+                    "/home/tangerine/.platformio/packages/framework-arduino-sam/libraries/SPI/src",
+                    "/home/tangerine/.platformio/packages/framework-arduino-sam/libraries/Wire/src",
+                    ""
+                ]
+            },
+            "defines": [
+                "PLATFORMIO=60119",
+                "__SAM3X8E__",
+                "ARDUINO_SAM_DUE",
+                "ARDUINO=10805",
+                "F_CPU=84000000L",
+                "USBCON",
+                "USB_VID=0x2341",
+                "USB_PID=0x003E",
+                "USB_PRODUCT=\"Arduino Due\"",
+                "USB_MANUFACTURER=\"Arduino\"",
+                "ARDUINO_ARCH_SAM",
+                ""
+            ],
+            "cStandard": "gnu11",
+            "cppStandard": "gnu++17",
+            "compilerPath": "/home/tangerine/.platformio/packages/toolchain-gccarmnoneeabi@1.70201.0/bin/arm-none-eabi-gcc",
+            "compilerArgs": [
+                "-mcpu=cortex-m3",
+                "-mthumb",
+                ""
+            ]
+        }
+    ],
+    "version": 4
+}

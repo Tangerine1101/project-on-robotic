@@ -1,0 +1,43 @@
+# Config for the robot app. Ported from ros2/src/robot_pkg/config/params.yaml.
+
+serial:
+  port: auto              # "auto" = detect by USB VID:PID (2341:003D), or e.g. "COM5" / "/dev/ttyACM0"
+  baudrate: 115200
+  move_tolerance_deg: 2.0
+  move_timeout_sec: 15.0
+  calibrate_timeout_sec: 20.0   # real calibration takes a while; firmware's own timeout is 10s per phase
+  grip_timeout_sec: 5.0
+
+vision:
+  camera_index: auto      # "auto" = detect by USB VID:PID (0C46:636B), or an integer index
+  frame_width: 1280       # capture resolution requested via cv2.CAP_PROP_FRAME_WIDTH/HEIGHT
+  frame_height: 720
+  model_path: best.pt
+  # Camera->robot 2D transform (all mm). Set these by running camera_calibrate.py
+  # (r = a*p + b, with a = (1/pixels_per_mm)*exp(i*rotate), p = cx +/- i*cy).
+  x_0_mm: 141.784  # translation, robot X (mm)
+  y_0_mm: -415.852  # translation, robot Y (mm)
+  pixels_per_mm: 2.2281  # image scale (pixels per mm)
+  rotate: 94.873  # residual cam->robot rotation (deg); -90 ~ old axis swap
+  z_flip: true  # true = camera z-axis flipped vs robot (pixel handedness reflected)
+  conf_threshold: 0.3
+  stream_frequency: 24
+  show_window: false       # set true for a live preview window (needs a display)
+
+dashboard:
+  enabled: true
+  host: 0.0.0.0           # 0.0.0.0 = reachable from other machines on the LAN; use 127.0.0.1 for local-only
+  port: 8000              # open http://localhost:8000 in a browser
+
+planner:
+  wait_vision: true
+  pickup_height_mm: 0.0
+  # [a, b, c, d] in degrees; joint 4 (d) is in the servo's final 0-180 frame
+  # (see doc/bug-report.md 1.6 -- do not add another +90 to this anywhere)
+  home_angles: [0.0, 40.0, -10.0, 90.0]
+  sleep_time: 0.5
+  zone_radius_mm: 70.0
+  zones:
+    onion:  {x: 114.0, y: -280.0}
+    garlic: {x: 246.0, y: -280.0}
+    lemon:  {x: 175.0, y: -280.0}

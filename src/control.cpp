@@ -8,13 +8,13 @@ motorControl::motorControl() :
     joint3(AccelStepper::DRIVER, pul3, dir3),
     joint4(),
     grip()
-{   
-    // Attach servos to their pins
-    joint4.attach(servo4);
-    grip.attach(servo5);
+{
+    // NOTE: this constructor runs during C++ static init, BEFORE the Arduino
+    // core's init() (global constructors run from the reset handler, before
+    // main()). Servo pulse generation set up this early can fail to actually
+    // run. init() is called again from setup() (post core-init) and re-attaches
+    // the servos there -- that is the attach that matters. See init().
     motorControl::init();
-    grip.write(gripOpen);
-    joint4.write(HOME_D);
 }
 
 void motorControl::init() { // Initialize motor parameters2
@@ -33,7 +33,13 @@ void motorControl::init() { // Initialize motor parameters2
     joint3.setMaxSpeed(maxSpeed);
     joint3.setAcceleration(acceleration);
     joint3.setMinPulseWidth(10);
-    // Joint 4    
+    // Joint 4 / grip: (re)attach the servos here. init() is called from setup()
+    // after the Arduino core is up, so this is the attach that reliably starts
+    // servo pulse generation (the constructor's earlier call runs pre-core-init).
+    if (!joint4.attached()) joint4.attach(servo4);
+    if (!grip.attached())   grip.attach(servo5);
+    joint4.write(HOME_D);
+    grip.write(gripOpen);
 }
 
 
@@ -78,7 +84,14 @@ bool motorControl::run() {  // motor run callback function.
         }
     return 1;
 }
-// Helper: Convert steps back to degrees for reporting
+// Helper: Convert steps back to degrees for reporting.
+// NOTE: this is OPEN-LOOP. readMicroseconds() returns the last COMMANDED pulse,
+// not the servo's real physical position (hobby servos give no feedback). So the
+// reported joint4/grip angle -- and any PC-side "move done" check that compares
+// it to the target -- confirms only that the command was issued, never that the
+// horn actually got there. Keep that in mind when debugging servo motion.
+// When DETACH_SERVO_AFTER_TASK is enabled and the servo is detached, this still
+// returns the last commanded angle.
 float motorControl::servoAngle(Servo joint){
     float pulse = joint.readMicroseconds();
     float angle = (pulse - 544.0) * (180.0 - 0.0) / (2400.0 - 544.0);
@@ -145,15 +158,88 @@ void motorControl::moveto(char axis, float angle) {
         case 'a': joint1.moveTo(steps); break;
         case 'b': joint2.moveTo(steps); break;
         case 'c': joint3.moveTo(steps); break;
-        case 'd': 
-            if (angle <= joint4Max && angle>= joint4Min) joint4.write(angle); 
-            delay(15); 
+        case 'd':
+            if (angle <= joint4Max && angle >= joint4Min) {
+            #ifdef DETACH_SERVO_AFTER_TASK
+                if (!joint4.attached()) joint4.attach(servo4); // re-attach for this move
+            #endif
+                joint4.write(angle);
+                delay(15);
+            #ifdef DETACH_SERVO_AFTER_TASK
+                delay(SERVO_SETTLE_MS); // let it reach position (open-loop) before cutting pulses
+                joint4.detach();
+            #endif
+            }
             break;
-        case 'e': 
-            if ((angle <= gripMax) && (angle >= gripMin)) grip.write(angle); 
-            delay(15); 
+        case 'e':
+            if ((angle <= gripMax) && (angle >= gripMin)) {
+            #ifdef DETACH_SERVO_AFTER_TASK
+                if (!grip.attached()) grip.attach(servo5);
+            #endif
+                grip.write(angle);
+                delay(15);
+            #ifdef DETACH_SERVO_AFTER_TASK
+                delay(SERVO_SETTLE_MS);
+                grip.detach();
+            #endif
+            }
             break;
         default: errorFlag= error_invalid_axis; break;
+    }
+}
+
+// Duration of a trapezoidal move of `distSteps` steps starting from rest with
+// max speed V (steps/s) and acceleration A (steps/s^2).
+float motorControl::profileTime(long distSteps, float V, float A) {
+    float d = (float)labs(distSteps);
+    if (d <= 0.0f)
+        return 0.0f;
+    if (d >= V * V / A)               // reaches cruise speed: trapezoid
+        return d / V + V / A;
+    return 2.0f * sqrtf(d / A);       // never reaches cruise: triangle
+}
+
+void motorControl::resetProfile() {
+    AccelStepper* joints[3] = {&joint1, &joint2, &joint3};
+    for (int i = 0; i < 3; i++) {
+        joints[i]->setMaxSpeed(maxSpeed);
+        joints[i]->setAcceleration(acceleration);
+    }
+}
+
+// SYNCHRONIZED ABSOLUTE MOVE (joints 1-3): the slowest axis runs at the nominal
+// profile; every other axis is stretched in time (V' = V/s, A' = A/s^2, which
+// keeps the trapezoid shape and regime boundary V^2/A intact) so all commanded
+// axes arrive at the same moment.
+// Note: profileTime assumes the axes start from rest, so retargeting a moving
+// arm gives only approximate sync -- the PC side's single-flight command queue
+// never does that in normal operation.
+void motorControl::movetoSync(const bool useAxis[3], const float targetDeg[3]) {
+    AccelStepper* joints[3] = {&joint1, &joint2, &joint3};
+    long targetSteps[3];
+    float t[3];
+    float T = 0.0f;
+    for (int i = 0; i < 3; i++) {
+        if (!useAxis[i])
+            continue;
+        targetSteps[i] = angleToSteps(targetDeg[i]);
+        long dist = targetSteps[i] - joints[i]->currentPosition();
+        t[i] = profileTime(dist, maxSpeed, acceleration);
+        if (t[i] > T)
+            T = t[i];
+    }
+    for (int i = 0; i < 3; i++) {
+        if (!useAxis[i])
+            continue;
+        if (t[i] > 0.0f) {
+            float s = T / t[i];       // >= 1; slowest axis gets s == 1 (nominal)
+            joints[i]->setMaxSpeed(maxSpeed / s);
+            joints[i]->setAcceleration(acceleration / (s * s));
+        } else {                      // zero-distance axis: nominal profile
+            joints[i]->setMaxSpeed(maxSpeed);
+            joints[i]->setAcceleration(acceleration);
+        }
+        joints[i]->moveTo(targetSteps[i]);
     }
 }
 
@@ -165,20 +251,15 @@ void motorControl::setpos(char axis, float angle){
         case 'c': joint3.setCurrentPosition(steps); break;
         case 'd': break;
         case 'e': break;
-        default: ComPort.println("[ERROR] Invalid Axis"); break;
-
+        default: errorFlag = error_invalid_axis; break;
     }
 }
 
 void motorControl::refCalibrate(bool interrupt){
-    calibrating = true;  
-    float ref[maxArguments]={REF_A, REF_B, REF_C, REF_D, REF_E}; 
-    if (HumanInterface){
-        ComPort.println("[PROCESSING] Calibrating...");
-    }
-    else {
-        serialCom::sendingPackage('F','P', ref);
-    }
+    resetProfile(); // a previous synced moveto may have left scaled-down speeds
+    calibrating = true;
+    float ref[maxArguments]={REF_A, REF_B, REF_C, REF_D, REF_E};
+    serialCom::sendingPackage('F','P', ref, limitSwitchMask());
     // phase 1: calibrate joint 2 and 3
     unsigned long timeout_check = millis();
     joint2.move(angleToSteps(jointsDir[1]*360));
@@ -188,7 +269,7 @@ void motorControl::refCalibrate(bool interrupt){
         turnSW_B(digitalRead(refB));
         turnSW_C(digitalRead(refC));
         if (millis() - timeout_check >= TIMEOUT_LIMIT){
-            serialCom::sendingPackage('F','F', ref);
+            serialCom::sendingPackage('F','F', ref, limitSwitchMask());
             errorFlag = error_timeout;
             break;
         }
@@ -202,7 +283,7 @@ void motorControl::refCalibrate(bool interrupt){
         turnSW_B(digitalRead(refB));
         turnSW_C(digitalRead(refC));
         if (millis() - timeout_check >= TIMEOUT_LIMIT){
-            serialCom::sendingPackage('F','F', ref);
+            serialCom::sendingPackage('F','F', ref, limitSwitchMask());
             errorFlag = error_timeout;
             break;
         }
@@ -227,7 +308,7 @@ void motorControl::refCalibrate(bool interrupt){
         turnSW_B(digitalRead(refB));
         turnSW_C(digitalRead(refC));
         if (millis() - timeout_check >= TIMEOUT_LIMIT){
-            serialCom::sendingPackage('F','F', ref);
+            serialCom::sendingPackage('F','F', ref, limitSwitchMask());
             errorFlag = error_timeout;
             break;
         }
@@ -236,36 +317,15 @@ void motorControl::refCalibrate(bool interrupt){
     calibrating = false;
     delay(1000);
     ComPort.flush();
-    if(HumanInterface)
-        ComPort.println("[DONE] Calibration done.");
-    else 
-        serialCom::sendingPackage('F','D', ref);
-
+    serialCom::sendingPackage('F','D', ref, limitSwitchMask());
 }
-
-void motorControl::reportPosition() { //print joint & grip position to Serial, for human 
-    ComPort.print("joint 1: "); ComPort.print(stepsToAngle(joint1.targetPosition()));
-    ComPort.print(" | joint 2: "); ComPort.print(stepsToAngle(joint2.targetPosition()));
-    ComPort.print(" | joint 3: "); ComPort.print(stepsToAngle(joint3.targetPosition()));
-    ComPort.print(" | joint 4: "); ComPort.println(servoAngle(joint4));
-    ComPort.print(" | grip: "); ComPort.println(servoAngle(grip));
-}
-void motorControl::angleTopic() { //print joint & grip position to Serial, for ros2 node specificfly
-    ComPort.print(NODE_SENDBYTE); 
-    ComPort.print(stepsToAngle(joint1.currentPosition()));ComPort.print(",");
-    ComPort.print(stepsToAngle(joint2.currentPosition()));ComPort.print(",");
-    ComPort.print(stepsToAngle(joint3.currentPosition()));ComPort.print(",");
-    ComPort.print(servoAngle(joint4));ComPort.print(",");
-    ComPort.println(servoAngle(grip));
-}
-
 
 void motorControl::get_angles(){
     angles[0] = stepsToAngle(joint1.currentPosition());
     angles[1] = stepsToAngle(joint2.currentPosition());
     angles[2] = stepsToAngle(joint3.currentPosition());
-    angles[3] = joint4_callback;
-    angles[4] = grip_callback;
+    angles[3] = servoAngle(joint4);
+    angles[4] = servoAngle(grip);
 }
 
 bool motorControl::ifRun(){
@@ -314,8 +374,10 @@ bool motorControl::turnSW_B(bool val){
 bool motorControl::turnSW_C(bool val){
     return limitSw_C = val;
 }
-void motorControl::moveServo(){
-    joint4.write(joint4_callback);
-    grip.write(grip_callback);
+// Compose the 3 switch states into one byte for the MCU->PC packet. Raw
+// polarity (1=open/not-touched, 0=at switch): each limitSw_* bool is written
+// atomically by its own turnSW_*/ISR, so reading them here needs no locking.
+uint8_t motorControl::limitSwitchMask() const {
+    return (uint8_t)(limitSw_A | (limitSw_B << 1) | (limitSw_C << 2));
 }
 //

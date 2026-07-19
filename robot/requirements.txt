@@ -1,0 +1,11 @@
+pyserial>=3.5
+opencv-python>=4.8
+ultralytics>=8.0
+numpy
+pyyaml
+flask>=3.0
+
+# Windows-only, used by devices.py's best-effort camera auto-detection.
+# Not required if you set vision.camera_index directly in config.yaml.
+wmi; sys_platform == "win32"
+pywin32; sys_platform == "win32"

@@ -2,14 +2,7 @@
 #define CONFIG_H  
 #include <Arduino.h>
 
-inline bool HumanInterface = 1;// 1: human interface, 0: ROS2 interface
 inline bool debugMode = 0; // 1: enable debug mode, 0: disable debug mode, currently only used in refCalibrate function to disable movement
-//test params, use commands 'testA' or 'testB' or 'testC' to move to location A,B,C
-
-extern const float gripOpen, gripClose, stepConvert;
-inline const float spotA[5]= {0, 40, 10, 0, gripClose};
-inline const float spotB[5]= {0, 20, 10, 0, gripClose};
-inline const float spotC[5]= {0, 30, 0, 0, gripClose};
 //system default config
 #define SAMPLE_TIME 1000 //millisecond
 #define TOPIC_FREQ 20 //Hz
@@ -23,14 +16,23 @@ inline const float spotC[5]= {0, 30, 0, 0, gripClose};
 #define maxArguments  5 //maximum arguments
 #define JOINT_SPEEDDOWN 0.5 //speed down factor
 #define INTERFERENCE_OFFSET 5.0 //degree, to avoid interference between joint 2 and joint 3, sum of joint2 and joint3 must < 60 - offset 
-inline const float gripOpen = 148.0;
-inline const float gripClose = 148.0;
+// TODO: gripOpen == gripClose (148.0) means the gripper never physically
+// opens or closes — measure the real open/close servo angles on hardware
+// and update these two values (see doc/bug-report.md 1.4).
+inline const float gripOpen = 60.0;
+inline const float gripClose = 120.0;
+// EXPERIMENTAL: when defined, joint4/grip servos are detached after each move
+// (motorControl::moveto), so they stop drawing holding current and stop
+// emitting their continuous refresh pulses when idle. The next move re-attaches
+// them automatically. Leave undefined for the default always-attached behavior.
+#define DETACH_SERVO_AFTER_TASK
+#define SERVO_SETTLE_MS 500 // open-loop settle time before detaching (ms)
 //Serial communicate
 #define BAUDRATE    115200
 #define NODE_STARTBYTE  0xAA 
 #define NODE_SENDBYTE   0xFE 
 //Reference angles
-#define REF_A   16.0
+#define REF_A   15.0
 #define REF_B   60.0
 #define REF_C   -20.0
 #define REF_D   90.0
@@ -42,9 +44,16 @@ inline const float gripClose = 148.0;
 #define HOME_E  gripClose
 
 //define how the drivers are connected
+//trục a: chiều dương rời xa limit switch refA, xoay base CW
+//trục b: chiều dương đẩy cánh tay về phía trước, đưa limit switch refB rời xa cơ cấu đòn bẩy nâng hạ cẳng tay.
+//trục c: chiều dương nâng cơ cấu lên và tiến gần limit switch refC
+//mô tả vị trí 3 switch: 
+// switch A: nằm trên base, khi base xoay CCW sẽ đụng trúng nó
+// switch B: nằm trên khâu bắp tay, khi bắp tay lùi về sau hoặc đòn bẩy của cánh tay tiến về trước sẽ có khả năng chạm vào. 
+// switch C: nằm trên base, khi đòn bẩy cánh tay lùi về sau sẽ chạm.
 #define COMMON_CATHODE  1
 inline const int jointsDir[3] = {1,1,-1}; // Define direction for each joint, using in refCalibrate function
-inline const int jointsRevDir[3] = {1,0,0}; // Define reverse direction for each joint
+inline const int jointsRevDir[3] = {0,1,1}; // Define reverse direction for each joint
 //define serial port, the program mainly use ComPort which in fact is programming port(Serial) on board, change it to serialUSB(native usb port) for faster Serial communication 
 #define ProgramPort SerialUSB
 #define ComPort Serial
@@ -86,8 +95,8 @@ inline constexpr long  joint3Min = CONST_LROUND(REF_C * stepConvert);
 inline constexpr long  joint3Max = CONST_LROUND(80 * stepConvert);
 inline constexpr float  joint4Min = -0.001;
 inline constexpr float  joint4Max = 180.001;
-inline const float  gripMin = gripOpen;
-inline const float  gripMax = gripClose;
+inline const float  gripMin = 50;
+inline const float  gripMax = 130;
 
 
 #endif
