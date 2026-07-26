@@ -13,7 +13,7 @@ serial:
   grip_timeout_sec: 5.0
 
 vision:
-  camera_index: auto      # "auto" = detect by USB VID:PID (0C46:636B), or an integer index
+  camera_index: auto      # "auto" = detect by USB VID:PID (0C45:636B), or an integer index
   frame_width: 640       # capture resolution requested via cv2.CAP_PROP_FRAME_WIDTH/HEIGHT
   frame_height: 480
   model_path: best.pt

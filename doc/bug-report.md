@@ -170,6 +170,66 @@ Focused review requested by the owner, who considers the MCU firmware reliable o
 
 ---
 
+## 6. Integration round (2026-07-18 → 2026-07-26)
+
+Found while wiring up the full pipeline on real hardware (homography calibration,
+the rewritten planner, the redesigned dashboard). All fixes are **PC-side**
+(`robot/`); the underlying firmware causes noted below are flagged, not changed.
+
+### 6.1 [FIXED 2026-07-26 — PC side] Base joint overshoots / "buzzes" and the move stalls
+- Symptom (owner-reported, with a log): during the rectangular pick-place cycle,
+  when the arm reached over the drop box the base joint (joint 1) crept past target
+  and the motors hummed without settling, until the move timed out.
+- Root cause: the new multi-segment path issues the next `moveTo` as soon as the
+  previous move is within `move_tolerance_deg` (2°), i.e. **while joints are still
+  moving fast**. Firmware `movetoSync` ([control.cpp](../src/control.cpp)) scales a
+  short axis' acceleration down (`A' = A/s²`); its own comment notes it **assumes
+  every axis starts from rest**. When joint 1 goes from the long axis in one segment
+  to the short axis in the next while still moving ~8°/s, the lowered acceleration
+  can't brake it in time → it overshoots ~16° and crawls back, exceeding the 15 s
+  move timeout. Confirmed directly from the residual log (joint `a` diverging while
+  `b`/`c` sat at zero).
+- **Fix applied** (`SerialLink._wait_for_targets`): a move now completes only when
+  each commanded joint is within tolerance **and has stopped** (per-sample change ≤
+  `settle_eps_deg`, default 0.3°), polling slower than the 20 Hz stream so motion
+  isn't aliased away. Every segment therefore starts from rest, satisfying
+  `movetoSync`'s assumption.
+- **Underlying firmware cause (flagged, not changed):** `movetoSync`'s rest
+  assumption. A firmware-side hardening would be to not scale a near-stationary
+  axis' acceleration below nominal, so a still-moving short axis can still brake.
+
+### 6.2 [FIXED 2026-07-26 — PC side] Robot calibrates twice on entering auto
+- Symptom: entering auto calibrated, then the arm calibrated a second time.
+- Root cause: `serial.calibrate_timeout_sec` was **20 s**, under `refCalibrate()`'s
+  ~31 s worst case (3 phases × 10 s + ~1 s — the same multi-phase behavior as §5.6).
+  A slow-but-succeeding calibrate raised `TimeoutError` while the MCU was still
+  calibrating; `Planner._calibrating` caught it and retried → a second full
+  calibrate.
+- **Fix applied:** raised `calibrate_timeout_sec` → **35 s** (config.yaml) so a slow
+  success isn't declared failed, plus a `Planner._need_calibrate` guard so the pick
+  loop can never re-enter `CALIBRATING` — calibrates exactly once per auto entry
+  (re-armed on each Manual→Auto). Related to §5.6; the real firmware fix is still to
+  make `refCalibrate()` stop after the first phase timeout.
+
+### 6.3 [FIXED 2026-07-25 — PC side] Detected position shifts when the camera resolution changes
+- Symptom: a homography calibrated at one resolution put objects in the wrong place
+  at another (e.g. 1920×1080 → 640×480).
+- Root cause: the homography/ROI are expressed in calibration-resolution pixels; the
+  live pipeline fed raw current-resolution pixels straight in.
+- **Fix applied** (`vision.py::set_frame_size`): rescale the homography + ROI to the
+  current frame using the camera's actual behavior — square pixels, centre-crop of
+  the longer axis when the aspect ratio differs, then a uniform scale — not an
+  independent per-axis stretch. Verified numerically against real captures.
+
+### 6.4 Debug logging added
+- `planner.py`: every state transition (`state: A -> B`), each move's target + IK
+  solution + result (`reached in Xs` / `TIMEOUT … residual=[…]`), and a throttled
+  heartbeat (`[hb] task=… pos=…`). `serial_link.py`: a ~1 Hz in-move residual line
+  so a stuck/overshooting joint is visible while the planner thread is blocked in a
+  move. These are what made §6.1 diagnosable.
+
+---
+
 ## Notes for the successor
 
 Most of the above were found by static analysis alone. §5 (motor-control review) additionally involved compiling and flashing the firmware to the physical Due and exercising the real binary protocol (safe: no motors/switches are wired to it) — see `TODO.md` for current status. Items marked **[HW]** (1.4, 1.6) still need real motor/switch hardware to confirm. Two items are the highest priority:

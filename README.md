@@ -22,39 +22,63 @@ python main.py --manual        # planner stays idle; drive via the dashboard or 
 python main.py --no-dashboard  # run without the web dashboard
 python tools/cli.py            # manual command-line control (moveto/goto/grip/calibrate/monitor/...)
 python tools/test_camera.py    # camera + YOLO preview, no MCU needed
-python camera_calibrate.py     # derive the camera->robot transform and write it to config.yaml
+python camera_calibrate.py     # derive the camera->robot homography + ROI (writes camera_calibration.yaml)
 ```
+
+> **Vietnamese handover docs** (fuller than this README): operation guide
+> [`doc/huong-dan-van-hanh.md`](doc/huong-dan-van-hanh.md) (install incl. WSL,
+> binding the MCU/camera, calibration, running, the dashboard, troubleshooting)
+> and architecture report [`doc/bao-cao-lap-trinh.md`](doc/bao-cao-lap-trinh.md)
+> (firmware + PC logic flow).
 `tools/cli.py` also has a **`goto <x_mm> <y_mm> <z_mm>`** command that runs the
 inverse kinematics (`kinematics.solve_ik_first`, mm in → joint degrees out) and
 moves joints 1–4 to that Cartesian point (grip untouched); it prints
 `unreachable` if no safe IK solution exists.
 
-The camera→robot mapping is calibrated by **`camera_calibrate.py`**: it opens the
-camera (YOLO runs only as a visual reference), lets you read pixel coordinates
-off a live preview, then asks for 3 point correspondences — for each of A, B, C
-the robot `X Y` (mm) and the matching pixel `u v` — plus a `z_flip` (is the
-camera z-axis flipped vs the robot). It fits a 2D similarity transform and writes
-`x_0_mm` / `y_0_mm` / `pixels_per_mm` / `rotate` / `z_flip` into the `vision:`
-block of `config.yaml`, which `vision.py` applies to emit detections in **mm**
-(the whole camera pipeline is mm now, matching the IK/planner).
-The MCU and camera are auto-detected by USB ID (see `robot/devices.py`); override
-`serial.port` / `vision.camera_index` in `robot/config.yaml` if auto-detect ever
-picks the wrong device.
+The camera→robot mapping is calibrated by **`camera_calibrate.py`** using a
+printed **checkerboard** (`tools/make_checkerboard.py`), in a two-pass workflow
+(the board must not move between passes):
+
+1. Run it once — it detects the board and saves
+   `dataset/calib/checkerboard_detected.jpg` with three corners labelled BL/BR/TL.
+   Touch the robot tip to those three physical corners, read the robot `X,Y` (mm),
+   and fill `robot_points_mm` in `robot/checkerboard.json`.
+2. Run it again — it fits a **homography** (pixel → robot mm, absorbing the tilted
+   table's perspective) plus a **workspace ROI**, and writes them to a standalone
+   `robot/camera_calibration.yaml` (config.yaml's `vision:` block only points at it).
+
+`vision.py` loads that file and emits detections in **mm** (the whole camera
+pipeline is mm, matching the IK/planner), dropping anything outside the ROI. A
+resolution change needs no re-calibration — `vision.py` rescales the homography/ROI
+to the current frame size automatically.
+
+The MCU and camera are auto-detected by USB ID (`2341:003D` and `0C45:636B`, see
+`robot/devices.py`); override `serial.port` / `vision.camera_index` in
+`robot/config.yaml` if auto-detect ever picks the wrong device.
 
 ## Web dashboard
-`main.py` serves a dashboard at **http://localhost:8000** (host/port in the
-`dashboard:` section of `robot/config.yaml`; also reachable from other machines
-on the LAN by default). Two tabs:
+`main.py` serves a single-page operator console at **http://localhost:8000**
+(host/port in the `dashboard:` section of `robot/config.yaml`; also reachable from
+other machines on the LAN by default):
 
-- **Dashboard** — live camera stream with YOLO detection boxes, plus a rolling
-  chart of all five joint angles (from the MCU's 20 Hz status stream).
-- **Manual control** — a toggle for auto mode (the pick-and-place sorting
-  cycle) and a manual joint-move form. The fields **x y z w e** are absolute
-  joint angles in degrees for **joint1 joint2 joint3 joint4 grip** respectively
-  (not Cartesian coordinates); leave a field blank to keep that joint in place.
-  Manual moves are rejected while auto mode is on. Note the grip (`e`) is
-  clamped to 148° by the firmware until the real open/close angles are
-  measured (doc/bug-report.md 1.4).
+- **Mode switch** — a big **AUTO ⟷ MANUAL** toggle. AUTO runs the pick-and-place
+  sorting cycle; MANUAL hands the arm to the operator (and is the effective stop
+  for the auto cycle). Status pills show the mode, the current task in plain
+  language, and the link state.
+- **Camera** — live stream with YOLO detection boxes, plus a **Detected objects**
+  list (name + `(x, y) mm` per object).
+- **Current position** — the four joint angles + grip angle, and the A/B/C
+  limit-switch indicators.
+- **Manual control** (enabled only in MANUAL): **Go to point** (enter X/Y/Z mm →
+  inverse kinematics → move), **Grip**/**Release**, **Calibrate**, and a
+  collapsible **Advanced: joint angles** (J1–J4, degrees). Manual commands are
+  rejected (HTTP 409) while AUTO is on.
+- **Diagnostics** (collapsible) — a rolling chart of all five joint angles from the
+  MCU's 20 Hz status stream.
+
+Note the grip is clamped to 148° by the firmware until the real open/close angles
+are measured (doc/bug-report.md 1.4). The API endpoints are documented at the top
+of `robot/dashboard.py`.
 
 See `doc/bug-report.md` for known issues (some need real hardware to confirm) and
 `TODO.md` for the current handover checklist.

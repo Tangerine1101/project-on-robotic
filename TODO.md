@@ -1,6 +1,17 @@
 # Handover TODO
 
-Ordered by priority. Items reference findings in [`doc/bug-report.md`](doc/bug-report.md). Status updated 2026-07-12 after implementing item 1, a firmware machine-interface cleanup pass, and (later the same day) items 1b/1c below.
+Ordered by priority. Items reference findings in [`doc/bug-report.md`](doc/bug-report.md). Status updated 2026-07-12 after implementing item 1, a firmware machine-interface cleanup pass, and (later the same day) items 1b/1c below. A second round of work (2026-07-18 → 07-26) is summarized in the box directly below.
+
+## Recent work (2026-07-18 → 2026-07-26)
+All PC-side (`robot/`); no firmware changes. See [`doc/bug-report.md`](doc/bug-report.md) §6 for the detailed findings/fixes.
+
+- **[DONE] Calibration switched to homography + ROI.** `camera_calibrate.py` now uses a printed checkerboard (two-pass: detect corners → owner fills 3 robot anchors in `robot/checkerboard.json` → refit) and writes a standalone `robot/camera_calibration.yaml` (3×3 pixel→mm homography + workspace ROI). Supersedes the 2026-07-18 similarity transform in item 1f; the old `x_0_mm/y_0_mm/pixels_per_mm/rotate/z_flip` keys are gone from `config.yaml`.
+- **[DONE] Resolution-independent vision.** `vision.py` rescales the calibrated homography/ROI to the live frame size (centre-crop + uniform-scale model), so 1920×1080 ↔ 640×480 no longer shifts detected positions.
+- **[DONE] Dashboard redesigned into a single-page operator console.** Big AUTO/MANUAL switch, detected-objects list, current-position panel, and MANUAL controls: Go-to-point (XYZ→IK), Grip/Release/Calibrate buttons, advanced joint form. New endpoints `/api/goto|grip|release|calibrate`; supersedes the two-tab UI in item 1c.
+- **[DONE] Planner: continuous rectangular pick-and-place.** Approach above object → down → grip → up → traverse over box → down to `drop_height_mm` → release → up, chaining objects nearest-their-box first and only homing when the table is empty (`robot/planner.py`).
+- **[DONE] Bug: double-calibrate on entering auto.** PC `calibrate_timeout_sec` (20 s) was under the firmware's ~31 s worst case, so a slow-but-succeeding calibrate was declared failed and retried. Raised to 35 s + a `_need_calibrate` guard → calibrates exactly once per auto entry.
+- **[DONE] Bug: base joint overshoots ("buzzing"/stall over the box).** Issuing the next path segment while a joint was still moving fast violated firmware `movetoSync`'s "start from rest" assumption → the short axis couldn't brake and overshot ~16°. `SerialLink._wait_for_targets` now returns only once joints are within tolerance **and** stopped (`settle_eps_deg`).
+- **[DONE] Debug logging.** State-transition, per-move target/IK/residual, ~1 Hz heartbeat (task + arm position), and live in-move residual lines to distinguish firmware vs scheduler issues.
 
 ## 1b. [DONE 2026-07-12] Firmware: time-synchronized moveto for joints 1–3
 `cmd_moveto` now stretches each commanded stepper's speed/acceleration profile so all commanded axes arrive at the same moment (`motorControl::movetoSync` in `src/control.cpp`; the slowest axis runs the nominal profile, the others are slowed to match — trapezoid shape preserved). Relative moves (`cmd_move`) and calibration reset to nominal profiles first (`resetProfile()`). Joint 4/grip are hobby servos with no speed API and stay unsynchronized. Verified on the real Due: a 30°/40°/10° three-axis moveto converged within one status tick (~150 ms measurement tail), where the old firmware would have finished the 10° axis ~1.4 s early; relative-move and calibration timing unchanged after.
@@ -57,7 +68,7 @@ robot/
 ├── main.py           # entry point: python main.py [--no-vision] [--manual]
 ├── config.yaml       # COM/serial port, camera index, zones, offsets (ported from params.yaml)
 ├── requirements.txt
-├── devices.py        # auto-detects the MCU (2341:003D) and camera (0C46:636B) by USB ID
+├── devices.py        # auto-detects the MCU (2341:003D) and camera (0C45:636B) by USB ID
 ├── serial_link.py    # MCU binary protocol, single-flight command queue
 ├── planner.py        # pick-and-place state machine (port of planner_node.py)
 ├── vision.py         # camera + YOLO thread (port of vision.py)
@@ -99,5 +110,10 @@ Fixed on the Python side already (see item 1) — `kinematics.py` keeps the one 
 - [OPEN] `best.pt` is still duplicated inside `ros2/` (`ros2/old/best.pt` and `ros2/src/robot_pkg/pkg/init/best.pt`) — left alone since `ros2/` is being kept only as a frozen reference, not developed further. `robot/best.pt` is the one copy that matters going forward.
 - [OPEN, moot if `ros2/` is ever deleted] placeholder license in `ros2/src/robot_pkg/setup.py`, hardcoded host path in `ros2/.devcontainer/devcontainer.json`.
 
-## 8. Write a Windows setup guide for the successor
-Still open. Should cover: Python install, `pip install -r robot/requirements.txt`, finding the correct COM port (Device Manager) if auto-detect ever fails, and flashing the firmware (PlatformIO `pio run -t upload`, or Arduino IDE per the README's C++ section).
+## 8. [DONE 2026-07-26] Write a setup/operation guide for the successor
+Written as [`doc/huong-dan-van-hanh.md`](doc/huong-dan-van-hanh.md) (Vietnamese, at
+the owner's request). Covers: install (incl. WSL2 + `usbipd-win` to bind the MCU/camera,
+and running natively on Windows), Python setup, flashing the firmware, camera↔robot
+calibration, running, the web dashboard, the CLI tools, config, and troubleshooting.
+A companion architecture report is [`doc/bao-cao-lap-trinh.md`](doc/bao-cao-lap-trinh.md)
+(firmware + PC logic flow).
