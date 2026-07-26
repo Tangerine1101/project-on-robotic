@@ -5,21 +5,23 @@ serial:
   baudrate: 115200
   move_tolerance_deg: 2.0
   move_timeout_sec: 15.0
-  calibrate_timeout_sec: 20.0   # real calibration takes a while; firmware's own timeout is 10s per phase
+  settle_eps_deg: 0.3     # a move is "done" only once joints are within tolerance AND
+                          # this-still (stopped), so the next segment starts from rest
+                          # and the firmware's movetoSync doesn't overshoot the base joint
+  calibrate_timeout_sec: 35.0   # must exceed the firmware worst case (3 phases x 10s + ~1s) so a slow
+                                # but succeeding calibrate isn't declared failed and retried (double-calibrate)
   grip_timeout_sec: 5.0
 
 vision:
   camera_index: auto      # "auto" = detect by USB VID:PID (0C46:636B), or an integer index
-  frame_width: 1280       # capture resolution requested via cv2.CAP_PROP_FRAME_WIDTH/HEIGHT
-  frame_height: 720
+  frame_width: 640       # capture resolution requested via cv2.CAP_PROP_FRAME_WIDTH/HEIGHT
+  frame_height: 480
   model_path: best.pt
-  # Camera->robot 2D transform (all mm). Set these by running camera_calibrate.py
-  # (r = a*p + b, with a = (1/pixels_per_mm)*exp(i*rotate), p = cx +/- i*cy).
-  x_0_mm: 141.784  # translation, robot X (mm)
-  y_0_mm: -415.852  # translation, robot Y (mm)
-  pixels_per_mm: 2.2281  # image scale (pixels per mm)
-  rotate: 94.873  # residual cam->robot rotation (deg); -90 ~ old axis swap
-  z_flip: true  # true = camera z-axis flipped vs robot (pixel handedness reflected)
+  # Camera->robot mapping + workspace ROI, both produced by camera_calibrate.py
+  # from a checkerboard and stored in calibration_file (a homography px->robot mm
+  # plus the ROI polygon). Run camera_calibrate.py to (re)generate that file.
+  calibration_file: camera_calibration.yaml  # path (relative to robot/) of the calibration output
+  roi_extend_mm: 10       # ROI = detected board rectangle grown by this margin (mm) on each side
   conf_threshold: 0.3
   stream_frequency: 24
   show_window: false       # set true for a live preview window (needs a display)
@@ -32,12 +34,18 @@ dashboard:
 planner:
   wait_vision: true
   pickup_height_mm: 0.0
+  # Pick path is up -> over -> down: after gripping, lift straight up to
+  # lift_height_mm (same x,y), traverse to the box at that height, then lower to
+  # drop_height_mm to release. drop_height_mm is the box rim height above the
+  # table -- MEASURE IT on the real box; 40 is only a placeholder.
+  lift_height_mm: 120.0
+  drop_height_mm: 120.0
   # [a, b, c, d] in degrees; joint 4 (d) is in the servo's final 0-180 frame
   # (see doc/bug-report.md 1.6 -- do not add another +90 to this anywhere)
   home_angles: [0.0, 40.0, -10.0, 90.0]
   sleep_time: 0.5
   zone_radius_mm: 70.0
   zones:
-    onion:  {x: 114.0, y: -280.0}
+    onion:  {x: 190.0, y: -310.0}
     garlic: {x: 246.0, y: -280.0}
-    lemon:  {x: 175.0, y: -280.0}
+    lemon:  {x: 90.0, y: -310.0}

@@ -14,7 +14,7 @@ inline bool debugMode = 0; // 1: enable debug mode, 0: disable debug mode, curre
 #define STEP_PER_REV 200.0
 #define MICRO_STEP  8.0
 #define maxArguments  5 //maximum arguments
-#define JOINT_SPEEDDOWN 0.5 //speed down factor
+#define JOINT_SPEEDDOWN 0.5 //speed down factor, NO EFFECT
 #define INTERFERENCE_OFFSET 5.0 //degree, to avoid interference between joint 2 and joint 3, sum of joint2 and joint3 must < 60 - offset 
 // TODO: gripOpen == gripClose (148.0) means the gripper never physically
 // opens or closes — measure the real open/close servo angles on hardware
@@ -25,7 +25,7 @@ inline const float gripClose = 120.0;
 // (motorControl::moveto), so they stop drawing holding current and stop
 // emitting their continuous refresh pulses when idle. The next move re-attaches
 // them automatically. Leave undefined for the default always-attached behavior.
-#define DETACH_SERVO_AFTER_TASK
+//#define DETACH_SERVO_AFTER_TASK
 #define SERVO_SETTLE_MS 500 // open-loop settle time before detaching (ms)
 //Serial communicate
 #define BAUDRATE    115200
@@ -68,7 +68,7 @@ inline errors errorFlag = error_none;
 //stepper's parameters
 inline const int stepsPerRevolution = 200; // Typical steps for a 1.8 degree motor in full step
 inline const float maxSpeed = 2*13.7*200*8;       // Steps per second, limit of this parameters is unclear due to the heaviness of the program, reduce callback time might improve this
-inline const float acceleration = 1200;   // Steps per second squared 
+inline const float acceleration = 2400;   // Steps per second squared 
 
 //config tb6600
 //pinout

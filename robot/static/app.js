@@ -1,21 +1,29 @@
-/* Robot arm dashboard front-end: status polling, joint-history chart,
- * auto/manual toggle and the manual joint-move form. Vanilla JS + Chart.js
- * (vendored in chart.umd.js so the page works with no internet). */
+/* Robot arm operator console: mode switch, live status polling, detected-object
+ * list, manual controls (go-to-point via IK, joint move, grip/release/calibrate)
+ * and a collapsible joint-history chart. Vanilla JS + Chart.js (vendored in
+ * chart.umd.js so the page works with no internet). */
 "use strict";
 
-const JOINT_LABELS = ["J1 (a)", "J2 (b)", "J3 (c)", "J4 (d)", "Grip (e)"];
+const JOINT_LABELS = ["J1", "J2", "J3", "J4", "Gripper"];
 const JOINT_COLORS = ["#4da3ff", "#f0c674", "#7ee2a8", "#ff8f8f", "#c792ea"];
 const WINDOW_SEC = 60; // chart shows the last minute
 
-/* ------------------------------------------------------------- tabs */
-document.querySelectorAll(".tab").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".tab").forEach((b) => b.classList.remove("active"));
-    document.querySelectorAll(".tabpane").forEach((p) => p.classList.remove("active"));
-    btn.classList.add("active");
-    document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
-  });
-});
+// Planner state -> plain-language text for the operator.
+const STATE_TEXT = {
+  WAIT_DEPS: "Waiting for camera",
+  CALIBRATING: "Calibrating",
+  MOVING_HOME: "Moving home",
+  SCANNING: "Scanning for objects",
+  MOVING_ABOVE_PICK: "Moving over object",
+  MOVING_PICK: "Lowering to pick",
+  GRIPPING: "Gripping",
+  MOVING_LIFT: "Lifting",
+  MOVING_TRAVERSE: "Moving to box",
+  MOVING_DROP: "Lowering into box",
+  RELEASING: "Releasing",
+  MOVING_RETREAT: "Lifting from box",
+  MANUAL: "Manual control",
+};
 
 /* ------------------------------------------------------------- chart */
 const chart = new Chart(document.getElementById("chart"), {
@@ -82,22 +90,40 @@ async function pollHistory() {
 }
 setInterval(pollHistory, 500);
 
-/* ------------------------------------------------------------- status */
+/* ------------------------------------------------------------- elements */
 const pillMode = document.getElementById("pill-mode");
 const pillState = document.getElementById("pill-state");
 const pillLink = document.getElementById("pill-link");
-const autoToggle = document.getElementById("auto-toggle");
-const modeHint = document.getElementById("mode-hint");
-const sendBtn = document.getElementById("send-btn");
+const btnAuto = document.getElementById("btn-auto");
+const btnManual = document.getElementById("btn-manual");
+const manualFields = document.getElementById("manual-fields");
+const manualHint = document.getElementById("manual-hint");
+const detList = document.getElementById("detections");
+const result = document.getElementById("action-result");
 
+let isManual = false; // last known mode
+let busy = false;     // a manual command is in flight
+
+/* ------------------------------------------------------------- status poll */
 async function pollStatus() {
   try {
     const res = await fetch("/api/status");
     const s = await res.json();
+
+    isManual = s.mode === "manual";
     pillMode.textContent = "mode: " + s.mode;
     pillMode.className = "pill " + (s.mode === "auto" ? "good" : "warn");
-    pillState.textContent = "state: " + s.state;
+    pillState.textContent = STATE_TEXT[s.state] || s.state;
     pillLink.textContent = `link: ${s.link_status[0]}/${s.link_status[1]}`;
+
+    btnManual.classList.toggle("active", isManual);
+    btnAuto.classList.toggle("active", !isManual);
+    manualHint.textContent = isManual
+      ? "You can move the arm below."
+      : "Auto mode is running the sorting cycle. Switch to Manual to control the arm.";
+    // Disable controls in auto mode or while a command is running.
+    manualFields.disabled = !isManual || busy;
+
     s.joints.forEach((v, i) => {
       document.getElementById("j" + i).textContent = v.toFixed(2);
     });
@@ -109,11 +135,9 @@ async function pollStatus() {
         el.className = "sw" + (hit ? " on" : "");
       });
     }
-    if (document.activeElement !== autoToggle) autoToggle.checked = s.mode === "auto";
-    sendBtn.disabled = s.mode === "auto";
-    modeHint.textContent = s.mode === "auto"
-      ? "Planner is running the sorting cycle; manual moves are blocked."
-      : "Planner is idle; manual moves are allowed.";
+
+    renderDetections(s.detections, s.vision);
+
     if (!s.vision) {
       document.getElementById("video").hidden = true;
       document.getElementById("video-off").hidden = false;
@@ -123,51 +147,96 @@ async function pollStatus() {
 setInterval(pollStatus, 500);
 pollStatus();
 
-/* ------------------------------------------------------------- mode toggle */
-autoToggle.addEventListener("change", async () => {
-  await fetch("/api/mode", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ auto: autoToggle.checked }),
-  });
+function renderDetections(dets, vision) {
+  if (!vision) {
+    detList.innerHTML = '<li class="muted">Vision disabled.</li>';
+    return;
+  }
+  if (!dets || !dets.length) {
+    detList.innerHTML = '<li class="muted">No objects.</li>';
+    return;
+  }
+  detList.innerHTML = dets.map((d) =>
+    `<li><span class="det-name">${escapeHtml(d.name)}</span>` +
+    `<span class="det-pos">(${d.x.toFixed(0)}, ${d.y.toFixed(0)}) mm</span></li>`
+  ).join("");
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+/* ------------------------------------------------------------- mode switch */
+async function setMode(auto) {
+  try {
+    await fetch("/api/mode", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ auto }),
+    });
+  } catch (e) { /* pollStatus will resync */ }
   pollStatus();
+}
+btnAuto.addEventListener("click", () => setMode(true));
+btnManual.addEventListener("click", () => setMode(false));
+
+/* ------------------------------------------------------------- actions */
+function showResult(text, kind) {
+  result.textContent = text;
+  result.className = kind || "";
+}
+
+/* Run a manual action: block the panel, POST, report ok/error, unblock. */
+async function runAction(label, url, body) {
+  if (busy) return;
+  busy = true;
+  manualFields.disabled = true;
+  showResult(`${label}…`, "working");
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.ok) {
+      showResult(`${label}: done`, "ok");
+    } else {
+      showResult(`${label}: ${data.error || "failed / timed out"}`, "err");
+    }
+  } catch (e) {
+    showResult(`${label}: request failed`, "err");
+  } finally {
+    busy = false;
+    manualFields.disabled = !isManual;
+  }
+}
+
+/* Go to point (X,Y,Z mm) via inverse kinematics */
+document.getElementById("goto-form").addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  const body = {};
+  for (const name of ["x", "y", "z"]) {
+    const val = ev.target.elements[name].value.trim();
+    if (val === "") { showResult("Enter X, Y and Z", "err"); return; }
+    body[name] = parseFloat(val);
+  }
+  runAction("Move", "/api/goto", body);
 });
 
-/* ------------------------------------------------------------- manual move */
-document.getElementById("move-form").addEventListener("submit", async (ev) => {
+/* Advanced joint move (J1-J4; gripper is handled by the buttons) */
+document.getElementById("move-form").addEventListener("submit", (ev) => {
   ev.preventDefault();
-  const result = document.getElementById("move-result");
   const body = {};
-  for (const name of ["x", "y", "z", "w", "e"]) {
+  for (const name of ["x", "y", "z", "w"]) {
     const val = ev.target.elements[name].value.trim();
     if (val !== "") body[name] = parseFloat(val);
   }
-  if (!Object.keys(body).length) {
-    result.textContent = "enter at least one angle";
-    result.className = "err";
-    return;
-  }
-  sendBtn.disabled = true;
-  result.textContent = "moving…";
-  result.className = "";
-  try {
-    const res = await fetch("/api/move", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const data = await res.json();
-    if (res.ok && data.ok) {
-      result.textContent = "done";
-      result.className = "ok";
-    } else {
-      result.textContent = data.error || "move failed / timed out";
-      result.className = "err";
-    }
-  } catch (e) {
-    result.textContent = "request failed";
-    result.className = "err";
-  } finally {
-    sendBtn.disabled = autoToggle.checked;
-  }
+  if (!Object.keys(body).length) { showResult("Enter at least one joint angle", "err"); return; }
+  runAction("Move joints", "/api/move", body);
 });
+
+document.getElementById("btn-grip").addEventListener("click", () => runAction("Grip", "/api/grip"));
+document.getElementById("btn-release").addEventListener("click", () => runAction("Release", "/api/release"));
+document.getElementById("btn-calibrate").addEventListener("click", () => runAction("Calibrate", "/api/calibrate"));

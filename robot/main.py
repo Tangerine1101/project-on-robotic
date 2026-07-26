@@ -60,6 +60,7 @@ def main():
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(asctime)s %(name)-12s %(levelname)-7s %(message)s",
+        datefmt="%H:%M:%S",  # time-only: readable when watching the live terminal
     )
     log = logging.getLogger("main")
 

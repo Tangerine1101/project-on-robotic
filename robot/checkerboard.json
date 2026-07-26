@@ -1,0 +1,11 @@
+{
+  "_comment": "Checkerboard geometry + 3 robot-frame anchor CORNERS for camera_calibrate.py. pattern_cols/rows are INNER corners (make_checkerboard.py 8x12 squares -> 7x11). square_mm must match the printed board (measure the 50mm line). The 3 anchors are corners (an L: bottom_left, bottom_right, top_left) so they are NON-collinear and fix the board->robot frame incl. handedness. Fill robot_points_mm after pass 1: run camera_calibrate.py once, open dataset/calib/checkerboard_detected.jpg, touch the robot tip to the 3 RED-labelled corners (BL, BR, TL), enter their robot X,Y in mm here, keep the board fixed, then re-run.",
+  "pattern_cols": 7,
+  "pattern_rows": 11,
+  "square_mm": 20.0,
+  "robot_points_mm": {
+    "bottom_left": [220, -35],
+    "bottom_right": [205, -230],
+    "top_left": [340, -26]
+  }
+}

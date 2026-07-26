@@ -3,76 +3,121 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Robot Arm Dashboard</title>
+<title>Robot Arm Control</title>
 <link rel="stylesheet" href="/style.css">
 <script src="/chart.umd.js"></script>
 </head>
 <body>
 <header>
-  <h1>Robot Arm</h1>
-  <div id="statusbar">
-    <span class="pill" id="pill-mode">mode: …</span>
-    <span class="pill" id="pill-state">state: …</span>
-    <span class="pill" id="pill-link">link: …</span>
+  <div class="head-row">
+    <h1>Robot Arm Control</h1>
+    <div id="statusbar">
+      <span class="pill" id="pill-mode">mode: …</span>
+      <span class="pill" id="pill-state">state: …</span>
+      <span class="pill" id="pill-link">link: …</span>
+    </div>
   </div>
-  <nav>
-    <button class="tab active" data-tab="dashboard">Dashboard</button>
-    <button class="tab" data-tab="manual">Manual control</button>
-  </nav>
+  <!-- Big, unmissable mode switch: AUTO runs the sorting cycle; MANUAL hands the
+       arm to the operator (and is the effective stop for the auto cycle). -->
+  <div id="mode-switch" role="group" aria-label="Operating mode">
+    <button class="mode-btn" id="btn-manual" data-auto="false">
+      <span class="mode-title">MANUAL</span>
+      <span class="mode-sub">You control the arm</span>
+    </button>
+    <button class="mode-btn" id="btn-auto" data-auto="true">
+      <span class="mode-title">AUTO</span>
+      <span class="mode-sub">Automatic sorting</span>
+    </button>
+  </div>
 </header>
 
 <main>
-  <!-- ============================== Dashboard tab -->
-  <section id="tab-dashboard" class="tabpane active">
+  <!-- ============================================ Left: camera + detections -->
+  <section class="col">
     <div class="panel" id="video-panel">
       <h2>Camera</h2>
       <img id="video" src="/video" alt="camera stream">
       <div id="video-off" hidden>Vision is disabled (started with --no-vision).</div>
     </div>
     <div class="panel">
-      <h2>Joint angles (deg)</h2>
-      <div class="chart-wrap"><canvas id="chart"></canvas></div>
+      <h2>Detected objects</h2>
+      <ul id="detections"><li class="muted">No objects.</li></ul>
+    </div>
+  </section>
+
+  <!-- ============================================ Right: status + controls -->
+  <section class="col">
+    <div class="panel">
+      <h2>Current position</h2>
       <table id="joints-table">
-        <tr><th>J1 (a)</th><th>J2 (b)</th><th>J3 (c)</th><th>J4 (d)</th><th>Grip (e)</th></tr>
+        <tr><th>J1</th><th>J2</th><th>J3</th><th>J4</th><th>Gripper</th></tr>
         <tr><td id="j0">–</td><td id="j1">–</td><td id="j2">–</td><td id="j3">–</td><td id="j4">–</td></tr>
       </table>
-      <h2>Limit switches</h2>
+      <div class="row-label">Limit switches</div>
       <div id="limit-switches">
         <span class="sw" id="sw-A">A: –</span>
         <span class="sw" id="sw-B">B: –</span>
         <span class="sw" id="sw-C">C: –</span>
       </div>
     </div>
-  </section>
 
-  <!-- ============================== Manual control tab -->
-  <section id="tab-manual" class="tabpane">
-    <div class="panel">
-      <h2>Mode</h2>
-      <p>Auto mode runs the pick-and-place cycle (sorting). Switch it off to send manual moves.</p>
-      <label class="switch">
-        <input type="checkbox" id="auto-toggle">
-        <span>Auto (product sorting)</span>
-      </label>
-      <div class="hint" id="mode-hint"></div>
-    </div>
-    <div class="panel">
-      <h2>Manual joint move</h2>
-      <p>Absolute joint angles in degrees. Leave a field blank to keep that joint where it is.</p>
-      <form id="move-form">
-        <div class="fields">
-          <label>x → J1 <input name="x" type="number" step="any" placeholder="deg"></label>
-          <label>y → J2 <input name="y" type="number" step="any" placeholder="deg"></label>
-          <label>z → J3 <input name="z" type="number" step="any" placeholder="deg"></label>
-          <label>w → J4 <input name="w" type="number" step="any" placeholder="deg"></label>
-          <label>e → Grip <input name="e" type="number" step="any" placeholder="deg"></label>
+    <div class="panel" id="manual-panel">
+      <h2>Manual control</h2>
+      <div class="hint" id="manual-hint"></div>
+
+      <fieldset id="manual-fields">
+        <!-- 1. Go to point (X,Y,Z mm) via inverse kinematics -->
+        <div class="block">
+          <div class="block-title">Go to point</div>
+          <p class="tiny">Enter a target on the table in millimetres; the arm computes the joints for you.</p>
+          <form id="goto-form" class="fields">
+            <label>X <input name="x" type="number" step="any" placeholder="mm"></label>
+            <label>Y <input name="y" type="number" step="any" placeholder="mm"></label>
+            <label>Z <input name="z" type="number" step="any" placeholder="mm"></label>
+            <button type="submit" class="primary">Move</button>
+          </form>
         </div>
-        <button type="submit" id="send-btn">Send</button>
-        <span id="move-result"></span>
-      </form>
-      <div class="hint">Note: the firmware currently clamps the grip (e) to 148° until the real
-        open/close angles are measured (doc/bug-report.md 1.4) — other values will time out.</div>
+
+        <!-- 2. Gripper -->
+        <div class="block">
+          <div class="block-title">Gripper</div>
+          <div class="btn-row">
+            <button type="button" id="btn-grip">Grip (close)</button>
+            <button type="button" id="btn-release">Release (open)</button>
+          </div>
+        </div>
+
+        <!-- 3. Calibrate -->
+        <div class="block">
+          <div class="block-title">Calibrate</div>
+          <div class="btn-row">
+            <button type="button" id="btn-calibrate">Run calibration</button>
+            <span class="tiny">Homes the arm to its reference switches (~20 s).</span>
+          </div>
+        </div>
+
+        <!-- 4. Advanced: raw joint angles (collapsed) -->
+        <details class="block">
+          <summary class="block-title">Advanced: joint angles</summary>
+          <p class="tiny">Absolute joint angles (deg). Blank = keep that joint. Gripper uses the buttons above.</p>
+          <form id="move-form" class="fields">
+            <label>J1 <input name="x" type="number" step="any" placeholder="deg"></label>
+            <label>J2 <input name="y" type="number" step="any" placeholder="deg"></label>
+            <label>J3 <input name="z" type="number" step="any" placeholder="deg"></label>
+            <label>J4 <input name="w" type="number" step="any" placeholder="deg"></label>
+            <button type="submit">Move joints</button>
+          </form>
+        </details>
+      </fieldset>
+
+      <div id="action-result"></div>
     </div>
+
+    <details class="panel">
+      <summary><h2 class="inline">Diagnostics</h2></summary>
+      <div class="row-label">Joint angles (deg), last minute</div>
+      <div class="chart-wrap"><canvas id="chart"></canvas></div>
+    </details>
   </section>
 </main>
 

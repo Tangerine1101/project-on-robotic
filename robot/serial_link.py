@@ -101,6 +101,10 @@ class SerialLink:
         self.move_timeout = config.get("move_timeout_sec", 15.0)
         self.calibrate_timeout = config.get("calibrate_timeout_sec", 20.0)
         self.grip_timeout = config.get("grip_timeout_sec", 5.0)
+        # A move is "done" only once the joints are within tolerance AND have
+        # stopped (per-sample change <= this). Returning while a joint is still
+        # moving fast makes the *next* movetoSync overshoot -- see _wait_for_targets.
+        self.settle_eps = float(config.get("settle_eps_deg", 0.3))
 
         self._ser = serial.Serial(port, baudrate, timeout=0.05)
         self._rx_buf = bytearray()
@@ -216,21 +220,48 @@ class SerialLink:
                 raise TimeoutError(f"no ack for '{cmd_char}' within {timeout}s")
             return self._ack_result
 
+    @staticmethod
+    def _reached(current, prev, targets, bitmask, tolerance, settle_eps):
+        """A move is complete only when every commanded joint is within `tolerance`
+        of its target AND has stopped moving (changed <= `settle_eps` since the
+        previous sample `prev`). The at-rest requirement is what prevents the next
+        movetoSync from overshooting: the firmware scales a short axis' acceleration
+        down, so if that axis is still moving fast when the next segment is issued it
+        cannot brake in time and shoots well past target. `prev` is None on the first
+        sample (treated as still moving)."""
+        if prev is None:
+            return False
+        for i in range(MAX_ARGS):
+            if not (bitmask & (1 << i)):
+                continue
+            if abs(targets[i] - current[i]) > tolerance:
+                return False
+            if abs(current[i] - prev[i]) > settle_eps:
+                return False
+        return True
+
     def _wait_for_targets(self, targets, bitmask, tolerance, timeout):
         deadline = time.monotonic() + timeout
+        next_log = time.monotonic() + 1.0  # throttle the live-progress line to ~1Hz
+        prev = None
         while time.monotonic() < deadline:
             with self._state_lock:
                 current = list(self.current_joints)
-            ok = True
-            for i in range(MAX_ARGS):
-                if not (bitmask & (1 << i)):
-                    continue
-                if abs(targets[i] - current[i]) > tolerance:
-                    ok = False
-                    break
-            if ok:
+            if self._reached(current, prev, targets, bitmask, tolerance, self.settle_eps):
                 return True
-            time.sleep(0.05)
+            # Live view while the planner thread is blocked here (the arm is moving
+            # or stuck): shows per-axis residual so a frozen/overshooting joint --
+            # e.g. the base creeping past target over the box -- is visible.
+            now = time.monotonic()
+            if now >= next_log:
+                next_log = now + 1.0
+                axes = [i for i in range(MAX_ARGS) if bitmask & (1 << i)]
+                resid = "  ".join(f"{AXES[i]}:{targets[i] - current[i]:+.1f}" for i in axes)
+                logger.info("move: waiting  residual[%s]", resid)
+            prev = current
+            # Poll slower than the 20Hz (50ms) status stream so `prev` is always a
+            # genuinely earlier sample -> real motion is detected, not aliased away.
+            time.sleep(0.08)
         return False
 
     # ------------------------------------------------------------- high level

@@ -4,14 +4,15 @@ Ported from ros2/src/robot_pkg/pkg/vision.py. Runs in a background thread and
 publishes detections into a lock-protected list the planner reads directly
 (replaces the ROS topic). Uses CAP_DSHOW on Windows / CAP_V4L2 on Linux.
 """
-import cmath
 import logging
-import math
 import sys
 import threading
 import time
+from pathlib import Path
 
 import cv2
+import numpy as np
+import yaml
 
 logger = logging.getLogger("vision")
 
@@ -22,14 +23,11 @@ class VisionWorker:
         self.model_path = str(model_path)
         self.frame_width = int(config.get("frame_width", 0)) or None
         self.frame_height = int(config.get("frame_height", 0)) or None
-        # Camera->robot 2D transform (mm), calibrated by camera_calibrate.py:
-        #   r = a*p + b,  a = (1/pixels_per_mm) * exp(i*rotate),  p = cx +/- i*cy
-        # Detections are emitted in mm (matching kinematics/planner).
-        px_per_mm = float(config.get("pixels_per_mm", 1.0)) or 1.0
-        rotate = math.radians(float(config.get("rotate", 0.0)))
-        self.z_flip = bool(config.get("z_flip", False))
-        self._a = (1.0 / px_per_mm) * cmath.exp(1j * rotate)
-        self._b = complex(float(config.get("x_0_mm", 0.0)), float(config.get("y_0_mm", 0.0)))
+        # Camera->robot mapping + workspace ROI from camera_calibrate.py: a
+        # homography (pixel -> robot mm, handles the tilted-table perspective)
+        # and the ROI polygon (detections outside it are dropped). Detections are
+        # emitted in mm (matching kinematics/planner).
+        self._load_calibration(config)
         self.conf_threshold = float(config.get("conf_threshold", 0.7))
         freq = float(config.get("stream_frequency", 24)) or 10.0
         self.period = 1.0 / freq
@@ -112,18 +110,81 @@ class VisionWorker:
             else:
                 next_tick = time.monotonic()
 
+    def _load_calibration(self, config):
+        """Load the homography + ROI written by camera_calibrate.py."""
+        calib_file = config.get("calibration_file", "camera_calibration.yaml")
+        calib_path = Path(__file__).resolve().parent / calib_file
+        if not calib_path.exists():
+            raise RuntimeError(
+                f"calibration file {calib_path} not found -- run camera_calibrate.py "
+                "with a checkerboard first to generate it")
+        data = yaml.safe_load(calib_path.read_text())
+        # Resolution the homography/ROI pixels are expressed in. Frames captured at
+        # a different resolution are rescaled to this before the homography applies
+        # (see set_frame_size): the camera resamples the same field of view, so a
+        # resolution change is a pure per-axis pixel scaling, not a new calibration.
+        self._calib_w = int(data.get("image_width", 0)) or None
+        self._calib_h = int(data.get("image_height", 0)) or None
+        self._H = np.array(data["homography_px_to_mm"], dtype=np.float64)
+        self._roi_mm = np.array(data["roi_polygon_mm"], dtype=np.float32)
+        self._roi_px_calib = np.array(data["roi_polygon_px"], dtype=np.float64)
+        # Effective (current-frame-resolution) transform + ROI; defaults to the
+        # calibration resolution until a frame of a known size arrives.
+        self.set_frame_size(self._calib_w, self._calib_h)
+
+    def set_frame_size(self, frame_w, frame_h):
+        """Adapt the calibrated homography + ROI (expressed in calibration-resolution
+        pixels) to frames of a different resolution.
+
+        The camera does not anamorphically stretch its field of view across
+        resolutions: it keeps square pixels and, when the requested aspect ratio
+        differs from the calibration frame's, centre-crops the longer axis (the
+        other axis' field of view is preserved). So a current-frame pixel maps to a
+        calibration pixel by a uniform scale plus a centred crop offset -- not an
+        independent per-axis scale. Recomputes the effective pixel->mm homography
+        (and its inverse) and the ROI polygon in the current frame's pixels. Call
+        once per frame with the frame's actual dimensions, before pixel_to_robot /
+        _origin_pixel / drawing the ROI."""
+        cw, ch = self._calib_w, self._calib_h
+        if cw and ch and frame_w and frame_h:
+            if frame_w * ch <= cw * frame_h:   # frame relatively narrower -> width cropped
+                s = ch / frame_h               # calib px per frame px (uniform)
+                x_off = (cw - frame_w * s) / 2.0
+                y_off = 0.0
+            else:                              # frame relatively wider -> height cropped
+                s = cw / frame_w
+                x_off = 0.0
+                y_off = (ch - frame_h * s) / 2.0
+        else:
+            s, x_off, y_off = 1.0, 0.0, 0.0
+        self._frame_w, self._frame_h = frame_w, frame_h
+        # current-frame px -> calibration px (uniform scale + centred crop offset)
+        frame_to_calib = np.array([[s,   0.0, x_off],
+                                   [0.0, s,   y_off],
+                                   [0.0, 0.0, 1.0]])
+        self._H_eff = self._H @ frame_to_calib
+        self._H_eff_inv = np.linalg.inv(self._H_eff)
+        # ROI polygon (calibration px) expressed in current-frame px for drawing
+        self._roi_px = ((self._roi_px_calib - [x_off, y_off]) / s).astype(np.int32)
+
     def pixel_to_robot(self, cx_px, cy_px):
-        """Map a pixel (cx, cy) to robot (x_mm, y_mm) via the calibrated transform."""
-        p = complex(cx_px, -cy_px) if self.z_flip else complex(cx_px, cy_px)
-        r = self._a * p + self._b
-        return r.real, r.imag
+        """Map a pixel (cx, cy) in the current frame's resolution to robot
+        (x_mm, y_mm) via the calibrated homography (see set_frame_size)."""
+        v = self._H_eff @ np.array([cx_px, cy_px, 1.0])
+        return float(v[0] / v[2]), float(v[1] / v[2])
+
+    def _in_roi(self, x_mm, y_mm):
+        """True if a robot-frame point falls inside the workspace ROI polygon."""
+        return cv2.pointPolygonTest(self._roi_mm, (float(x_mm), float(y_mm)), False) >= 0
 
     def _origin_pixel(self):
-        """Pixel where robot (0, 0) projects to (for the on-frame origin marker)."""
-        p = -self._b / self._a  # r = 0 => a*p + b = 0
-        return int(round(p.real)), int(round(-p.imag if self.z_flip else p.imag))
+        """Pixel where robot (0, 0) projects to (for the on-frame origin marker),
+        in the current frame's resolution."""
+        v = self._H_eff_inv @ np.array([0.0, 0.0, 1.0])
+        return int(round(v[0] / v[2])), int(round(v[1] / v[2]))
 
     def _process_frame(self, frame):
+        self.set_frame_size(frame.shape[1], frame.shape[0])
         results = self.model(frame, conf=self.conf_threshold, verbose=False)
 
         detections = []
@@ -137,12 +198,15 @@ class VisionWorker:
                 cy_px = (y1 + y2) // 2
 
                 obj_x_mm, obj_y_mm = self.pixel_to_robot(cx_px, cy_px)
+                if not self._in_roi(obj_x_mm, obj_y_mm):
+                    continue  # outside the calibrated workspace -- ignore
 
                 detections.append({"name": name, "x": float(obj_x_mm), "y": float(obj_y_mm), "z": 0.0})
 
                 cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
                 cv2.putText(frame, name, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
+        cv2.polylines(frame, [self._roi_px], True, (0, 255, 255), 2)  # ROI outline
         origin_px_x, origin_px_y = self._origin_pixel()
         cv2.circle(frame, (origin_px_x, origin_px_y), 8, (0, 0, 255), -1)
         ok, jpeg = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 80])

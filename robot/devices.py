@@ -1,7 +1,7 @@
 """Auto-detect the MCU and camera by USB vendor:product ID.
 
 MCU:    2341:003D  (Arduino Due, programming port)
-Camera: 0C46:636B
+Camera: 0c45:636b
 
 Both are overridable via config.yaml (serial.port / vision.camera_index) if
 auto-detection ever misbehaves on a given machine.
@@ -13,7 +13,7 @@ import sys
 import serial.tools.list_ports as list_ports
 
 MCU_VID, MCU_PID = 0x2341, 0x003D
-CAMERA_VID, CAMERA_PID = 0x0C46, 0x636B
+CAMERA_VID, CAMERA_PID = 0x0C45, 0x636B
 
 
 class DeviceNotFoundError(RuntimeError):
